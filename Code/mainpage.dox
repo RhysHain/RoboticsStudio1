@@ -1,0 +1,103 @@
+
+/** \mainpage
+
+@b a3_skeleton is a skeleton package prepared for PfMS to assist students in completing Assignment 3 - Individual Project
+
+This package is here to assist studenets in the developing understandig of:
+* how to create nodes and communicate between them using topics and services
+* write a library that is unit tests against a ros2 bag, and integrated into a node 
+
+The support package contains an example of two nodes "foo" and "bar" which are compiled seperately into executables "foo_node" and "bar_node". They can also be 
+run together using the "both_nodes" executable.
+
+@section a3_skeleton Foo Node
+
+The "foo" node subscribes to topic "orange/laserscan" listening for "sensor_msgs::msg::LaserScan" from the ackerman platform. It alos subscribes to "goal" topic
+listenining to "geometry_msgs::msg::Pose". Finally, it listens for a "std_srvs::srv::Trigger" type service call on "detect" service name, and it runs the server (it 
+takes requests and responds).
+
+Together with the service call we have 5 functions that are invoked at different times (two callbacks, the service, a thread and a timer).
+A function runs tied to a timer (triggered every 500ms) and a thread of execution is tied to threadFunction (which has a sleep of 1s). 
+All of the timer/callback/thread arangement is acheived in constructor of the class.
+
+We will use ROS INFO to indicate when a function is invoked (thread, timer, service) and use the LaserProcessing class from a number of functions. 
+This is an example of mechanisms available to scafold your code. You have to decide what is best mechanism. 
+
+Note, the all processing is done outside the node that subscribes to ROS (the node that contains the 'plumbing'. 
+Please consider this when creating your own code.
+
+@subsection a3_skeleton Laser Processing
+
+The library has two public methods, it is thread safe as internally implements all necessary mutexes so the user can call the functions from a number of threads. 
+This library is tested via unit tests, where the single public function is tested against a ros bag that contains data.
+
+
+@section a3_skeleton Bar Node
+
+The `bar` node is designed to periodically call a service (`/detect`) to check for detection in the laser via `foof` node. 
+The node therefore uses the client end of the service. A separate thread running at 1Hz manages functionality of publishing random poses and markers. The random poses 
+are published to topic (`/goal`), which the `foo` node is listenining to. It visualize the poses using 
+markers published to a topic (`/visualization_marker`) under the namespace `sample1`. The markers are continously 
+added to the array, each marker a cylider shape like a puck with orange colour with lifespan of 20s.
+
+@section a3_skeleton Building the code
+
+    colcon build --symlink-install --packages-select a3_skeleton
+
+@section a3_skeleton Running the code
+
+Any launch file containing the Audi (ackerman) will work. Below is example of a2 launch file that needs to run in  a seperate terminal.
+
+    ros2 launch pfms a2.launch.py
+
+The two nodes compiled from this package in executables sample can be run
+
+    ros2 run a3_skeleton foo_node
+
+And
+
+    ros2 run a3_skeleton bar_node
+
+Or then can be run from one executable.
+
+    ros2 run a3_skeleton both_nodes
+
+We can also just run the foo_node and invoke a service call from command line
+
+    ros2 service call /detect std_srvs/srv/Trigger {}
+
+@section a3_skeleton Code behaviour
+
+While the simulator is running and laser data is being received, the code will intermitedly use the ROS INFO logger to show the time and indicate 
+wether the Timer or the thread is activated.
+
+    [INFO] [1715154338.182446599] [a3_skeleton]: Timer callback example
+    [INFO] [1715154338.682455787] [a3_skeleton]: Timer callback example
+    [INFO] [1715154338.682696076] [a3_skeleton]: in thread valid readings:640
+
+If a service call is invoked, additionally a message from the service call would be displayed
+
+    [INFO] [1715154493.535609162] [a3_skeleton]: service valid readings:640
+
+The terminal that invokes the service call will show the responce such as
+
+    requester: making request: std_srvs.srv.Trigger_Request()
+
+    response:
+    std_srvs.srv.Trigger_Response(success=True, message='Readings: 640')
+
+@subsection a3_skeleton Unit testing
+
+One single unit test CountReturns which is a member of LaserProcessing testing suite is supplied. There is also a
+single ros2 bag supplied and the test created has been validated by external means (the ground truth being used to
+construct the test - either manual inpscetion or using a GUI.)
+
+Unit tests need to check inner code functionality, we are testing LaserProcessing and the public function available. A ros bag (under the "data" folder) is supplied. 
+The laser is completely unobstructed in this dataset, which is provided as an example of how to read bags inside a test and extract information that is then past to a function. You will need to record your own bags for unit testing, covered in week 12. The unti test that is invoked is called "test_laserprocessing"
+
+To run the unit test.
+
+    colcon test --event-handlers console_cohesion+ --packages-select a3_skeleton
+
+*/
+
