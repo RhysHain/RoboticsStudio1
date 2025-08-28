@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="2">
-  <name>a3_skeleton</name>
+  <name>codes</name>
   <version>0.0.1</version>
-  <description>A3 skeleton for students to augument</description>
+  <description>The package for our Robotics Stuido 1 project</description>
 
-  <maintainer email="Name.Surname@studnet.uts.edu.au">Name Surname</maintainer>
+  <maintainer email="rhys.hain@studnet.uts.edu.au">Name Surname</maintainer>
 
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
@@ -13,7 +13,7 @@
   <license>LGPLv3</license>
 
 
-  <author email="Name.Surname@uts.edu.au">Name Surname</author> 
+  <author email="rhys.hain@uts.edu.au">Rhys Hain</author> 
 
   <!-- The *_depend tags are used to specify dependencies -->
   <!-- Dependencies can be catkin packages or system dependencies -->

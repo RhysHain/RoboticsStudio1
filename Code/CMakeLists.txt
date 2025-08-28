@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(a3_skeleton)
+project(codes)
 
 # Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
@@ -34,35 +34,9 @@ find_package(rosbag2_cpp REQUIRED)
 add_library(laserprocessing src/laserprocessing.cpp)
 ament_target_dependencies(laserprocessing rclcpp std_msgs sensor_msgs nav_msgs)
 
-## This is the executable
-add_executable(foo_node src/main_foo.cpp src/foo.cpp)
-ament_target_dependencies(foo_node 
-  rclcpp 
-  std_msgs 
-  sensor_msgs 
-  nav_msgs 
-  tf2 
-  std_srvs
-)
-target_link_libraries(foo_node laserprocessing)
-
-## This is the executable
-add_executable(bar_node src/main_bar.cpp src/bar.cpp)
-ament_target_dependencies(bar_node 
-  rclcpp 
-  std_msgs 
-  sensor_msgs 
-  nav_msgs 
-  geometry_msgs
-  tf2 
-  tf2_ros 
-  tf2_geometry_msgs 
-  std_srvs 
-  visualization_msgs
-)
 
 # ## This is the executable
-add_executable(both_nodes src/main_both.cpp src/bar.cpp src/foo.cpp)
+add_executable(both_nodes src/main.cpp src/bar.cpp src/foo.cpp)
 ament_target_dependencies(both_nodes 
   rclcpp 
   std_msgs 
