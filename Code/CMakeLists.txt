@@ -29,14 +29,9 @@ find_package(geometry_msgs REQUIRED)
 find_package(ament_cmake_ros REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 
-#################################################################
-# The library we are developing will be called laserprocessing
-add_library(laserprocessing src/laserprocessing.cpp)
-ament_target_dependencies(laserprocessing rclcpp std_msgs sensor_msgs nav_msgs)
-
 
 # ## This is the executable
-add_executable(both_nodes src/main.cpp src/bar.cpp src/foo.cpp)
+add_executable(both_nodes src/main.cpp src/control_node.cpp src/mission.cpp)
 ament_target_dependencies(both_nodes 
   rclcpp 
   std_msgs 
@@ -49,13 +44,10 @@ ament_target_dependencies(both_nodes
   visualization_msgs
   geometry_msgs
 )
-target_link_libraries(both_nodes laserprocessing)
+target_link_libraries(both_nodes)
 
 install(TARGETS
-  foo_node
-  bar_node
   both_nodes
-  laserprocessing
   DESTINATION lib/${PROJECT_NAME})
 
 install(
@@ -66,9 +58,8 @@ install(
 
 if(BUILD_TESTING)
 
-  ament_add_ros_isolated_gtest(test_laserprocessing test/utest.cpp)
-  target_link_libraries(test_laserprocessing laserprocessing)
-  ament_target_dependencies(test_laserprocessing rclcpp sensor_msgs nav_msgs rosbag2_cpp)
+  ament_add_ros_isolated_gtest(test/utest.cpp)
+  ament_target_dependencies(rclcpp sensor_msgs nav_msgs rosbag2_cpp)
 
 endif()
 
