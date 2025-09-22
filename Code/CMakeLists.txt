@@ -31,8 +31,8 @@ find_package(rosbag2_cpp REQUIRED)
 
 
 # ## This is the executable
-add_executable(both_nodes src/main.cpp src/control_node.cpp src/mission.cpp)
-ament_target_dependencies(both_nodes 
+add_executable(controllers src/main.cpp src/drone_node.cpp src/husky_node.cpp src/controller.cpp src/quadcopter.cpp src/skidsteer.cpp)
+ament_target_dependencies(controllers 
   rclcpp 
   std_msgs 
   sensor_msgs 
@@ -41,13 +41,12 @@ ament_target_dependencies(both_nodes
   tf2_ros 
   tf2_geometry_msgs 
   std_srvs
-  visualization_msgs
   geometry_msgs
 )
-target_link_libraries(both_nodes)
+target_link_libraries(controllers)
 
 install(TARGETS
-  both_nodes
+  controllers
   DESTINATION lib/${PROJECT_NAME})
 
 install(
@@ -58,8 +57,8 @@ install(
 
 if(BUILD_TESTING)
 
-  ament_add_ros_isolated_gtest(test/utest.cpp)
-  ament_target_dependencies(rclcpp sensor_msgs nav_msgs rosbag2_cpp)
+  ament_add_ros_isolated_gtest(basic_test test/utest.cpp)
+  ament_target_dependencies(basic_test rclcpp sensor_msgs nav_msgs rosbag2_cpp)
 
 endif()
 

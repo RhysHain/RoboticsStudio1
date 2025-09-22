@@ -1,4 +1,4 @@
-#include "control_node.h"
+#include "drone_node.h"
 #include <chrono>
 #include <random>
 
@@ -7,27 +7,27 @@
 
 using namespace std::chrono_literals; // Needed in the 1s wait for future
 
-ControllerNode::ControllerNode() 
-    : Node("Controller_Node")
+DroneNode::DroneNode() 
+    : Node("Drone_Node")
 {
-    activeSub_ = this->create_subscription<std_msgs::msg::Bool>("/CODES/active", 10, std::bind(&ControllerNode::activate,this, std::placeholders::_1));
-    goalReady = this->create_publisher<std_msgs::msg::Bool>("/CODES/goal_ready", 10);
-    droneCmdPub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
-    goalSub_ = this->create_subscription<geometry_msgs::msg::Pose>("/CODES/goals", 10, std::bind(&ControllerNode::goal_callback,this,std::placeholders::_1));
-    odoSub_ = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&ControllerNode::odo_callback,this,std::placeholders::_1));
+    activeSub_ = this->create_subscription<std_msgs::msg::Bool>("/CODES/drone/active", 10, std::bind(&DroneNode::activate,this, std::placeholders::_1));
+    goalReady = this->create_publisher<std_msgs::msg::Bool>("/CODES/drone/goal_ready", 10);
+    droneCmdPub_ = this->create_publisher<geometry_msgs::msg::Twist>("/CODES/drone/cmd_vel", 10);
+    goalSub_ = this->create_subscription<geometry_msgs::msg::Pose>("/CODES/drone/goals", 10, std::bind(&DroneNode::goal_callback,this,std::placeholders::_1));
+    odoSub_ = this->create_subscription<nav_msgs::msg::Odometry>("/CODES/drone/odom", 10, std::bind(&DroneNode::odo_callback,this,std::placeholders::_1));
 
     commandTimer_ = this->create_wall_timer(
         std::chrono::milliseconds(50),
-        std::bind(&ControllerNode::commandTimer_callback, this));
+        std::bind(&DroneNode::commandTimer_callback, this));
 
 }
 
-ControllerNode::~ControllerNode()
+DroneNode::~DroneNode()
 {
     
 }
 
-void ControllerNode::commandTimer_callback() {
+void DroneNode::commandTimer_callback() {
     std_msgs::msg::Bool isReady;
     if (drone_.status() == data::PlatformStatus::IDLE) {
         isReady.data = true;
@@ -54,18 +54,18 @@ void ControllerNode::commandTimer_callback() {
     
 }
 
-void ControllerNode::activate(const std::shared_ptr<std_msgs::msg::Bool> boool) {
+void DroneNode::activate(const std::shared_ptr<std_msgs::msg::Bool> boool) {
     active_ = boool->data;
     if (active_) {
-        RCLCPP_INFO(this->get_logger(), "Controller Activated");
+        RCLCPP_INFO(this->get_logger(), "Drone Activated");
     }
     else {
-        RCLCPP_INFO(this->get_logger(), "Controller Deactivated");
+        RCLCPP_INFO(this->get_logger(), "Drone Deactivated");
     }
     
 }
 
-void ControllerNode::goal_callback(const std::shared_ptr<geometry_msgs::msg::Pose> pose) {
+void DroneNode::goal_callback(const std::shared_ptr<geometry_msgs::msg::Pose> pose) {
     if (active_) {
         geometry_msgs::msg::Pose goals = *pose;
         data::geometry_msgs::Point goalsToSet = convertGoalType(goals);
@@ -73,13 +73,18 @@ void ControllerNode::goal_callback(const std::shared_ptr<geometry_msgs::msg::Pos
             drone_.run();
         }
     }
-    RCLCPP_INFO(this->get_logger(), "Goal Received");
+    RCLCPP_INFO(this->get_logger(), "Drone Goal Received");
 }
 
-data::geometry_msgs::Point ControllerNode::convertGoalType(geometry_msgs::msg::Pose goals) {
+data::geometry_msgs::Point DroneNode::convertGoalType(geometry_msgs::msg::Pose goals) {
     data::geometry_msgs::Point goalsToSet;
     goalsToSet.x = goals.position.x;
     goalsToSet.y = goals.position.y;
     goalsToSet.z = goals.position.z;
     return goalsToSet;
+}
+
+void DroneNode::odo_callback(const std::shared_ptr<nav_msgs::msg::Odometry> odo) {
+    odo_ = *odo;
+    drone_.setOdometry(odo_);
 }

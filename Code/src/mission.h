@@ -13,16 +13,8 @@
 #include "geometry_msgs/msg/pose.hpp"
 #include "std_srvs/srv/trigger.hpp"
 
-// We have included the laserProcessing header file here as it is used in the node
-#include "laserprocessing.h"
 
 
-/*!
-* @brief Foo class. 
-* This is the class that will be used to create the node, it needs to inherit from rclcpp::Node
-* This class will have the callbacks for the services and the subscribers
-* Would recommend that processing is done in libraries and not in the node itself, the example here is laserProcessing
-*/
 class Mission : public rclcpp::Node{
 
 public:
