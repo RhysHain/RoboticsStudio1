@@ -86,9 +86,9 @@ void Quadcopter::reachGoal(void) {
             while (!hasTakenOff) {
                 this->sendCmd(0,0,0,0,true);
                 state_ = LAUNCHING;
-                this->sendCmd(0,0,this->getToHeight(10), 0, false);
+                this->sendCmd(0,0,this->getToHeight(2), 0, false);
                 count++;
-                if ((this->getOdometry().position.z > 10) || (count >= 100)) {
+                if ((this->getOdometry().position.z > 10) || (count >= 50)) {
                     hasTakenOff = true;
                     state_ = HOVER;
                 }
