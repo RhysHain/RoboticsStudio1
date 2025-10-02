@@ -1,6 +1,6 @@
 #include "rclcpp/rclcpp.hpp"
-#include "foo.h"
-#include "bar.h"
+#include "drone_node.h"
+#include "husky_node.h"
 
 int main(int argc, char **argv)
 {
@@ -10,8 +10,8 @@ int main(int argc, char **argv)
   rclcpp::init(argc, argv);
 
   // Create two nodes
-  auto node1 = std::make_shared<Foo>();
-  auto node2 = std::make_shared<Bar>(); 
+  auto node1 = std::make_shared<DroneNode>();
+  auto node2 = std::make_shared<HuskyNode>(); 
 
   // Create an executor
   rclcpp::executors::MultiThreadedExecutor executor;

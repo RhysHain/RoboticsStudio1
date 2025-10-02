@@ -29,15 +29,10 @@ find_package(geometry_msgs REQUIRED)
 find_package(ament_cmake_ros REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 
-#################################################################
-# The library we are developing will be called laserprocessing
-add_library(laserprocessing src/laserprocessing.cpp)
-ament_target_dependencies(laserprocessing rclcpp std_msgs sensor_msgs nav_msgs)
-
 
 # ## This is the executable
-add_executable(both_nodes src/main.cpp src/bar.cpp src/foo.cpp)
-ament_target_dependencies(both_nodes 
+add_executable(controllers src/main.cpp src/drone_node.cpp src/husky_node.cpp src/controller.cpp src/quadcopter.cpp src/skidsteer.cpp)
+ament_target_dependencies(controllers 
   rclcpp 
   std_msgs 
   sensor_msgs 
@@ -46,16 +41,12 @@ ament_target_dependencies(both_nodes
   tf2_ros 
   tf2_geometry_msgs 
   std_srvs
-  visualization_msgs
   geometry_msgs
 )
-target_link_libraries(both_nodes laserprocessing)
+target_link_libraries(controllers)
 
 install(TARGETS
-  foo_node
-  bar_node
-  both_nodes
-  laserprocessing
+  controllers
   DESTINATION lib/${PROJECT_NAME})
 
 install(
@@ -66,9 +57,8 @@ install(
 
 if(BUILD_TESTING)
 
-  ament_add_ros_isolated_gtest(test_laserprocessing test/utest.cpp)
-  target_link_libraries(test_laserprocessing laserprocessing)
-  ament_target_dependencies(test_laserprocessing rclcpp sensor_msgs nav_msgs rosbag2_cpp)
+  ament_add_ros_isolated_gtest(basic_test test/utest.cpp)
+  ament_target_dependencies(basic_test rclcpp sensor_msgs nav_msgs rosbag2_cpp)
 
 endif()
 
