@@ -1,0 +1,65 @@
+cmake_minimum_required(VERSION 3.5)
+project(codes)
+
+# Default to C++17
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic -Wunused-parameter)
+else()
+  add_compile_options(-Wunused-parameter)
+endif()
+
+## Find packages, remove those that are not needed
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+
+find_package(ament_cmake_ros REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
+
+
+# ## This is the executable
+add_executable(controllers src/main.cpp src/drone_node.cpp src/husky_node.cpp src/controller.cpp src/quadcopter.cpp src/skidsteer.cpp)
+ament_target_dependencies(controllers 
+  rclcpp 
+  std_msgs 
+  sensor_msgs 
+  nav_msgs 
+  tf2 
+  tf2_ros 
+  tf2_geometry_msgs 
+  std_srvs
+  geometry_msgs
+)
+target_link_libraries(controllers)
+
+install(TARGETS
+  controllers
+  DESTINATION lib/${PROJECT_NAME})
+
+install(
+  DIRECTORY
+    data
+  DESTINATION share/${PROJECT_NAME}
+)
+
+if(BUILD_TESTING)
+
+  ament_add_ros_isolated_gtest(basic_test test/utest.cpp)
+  ament_target_dependencies(basic_test rclcpp sensor_msgs nav_msgs rosbag2_cpp)
+
+endif()
+
+ament_package()
