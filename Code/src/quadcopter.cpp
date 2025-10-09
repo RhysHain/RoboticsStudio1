@@ -80,15 +80,16 @@ void Quadcopter::reachGoal(void) {
         while (execute_) {
             std::unique_lock<std::mutex> lck(mtx);
             this->updateTravelData();
+            status_ = data::PlatformStatus::RUNNING;
             bool hasTakenOff = false;
             int count = 0;
             //Launch the quadcopter
             while (!hasTakenOff) {
                 this->sendCmd(0,0,0,0,true);
                 state_ = LAUNCHING;
-                this->sendCmd(0,0,this->getToHeight(2), 0, false);
+                this->sendCmd(0,0,this->getToHeight(10), 0, false);
                 count++;
-                if ((this->getOdometry().position.z > 10) || (count >= 50)) {
+                if ((this->getOdometry().position.z > 2) || (count >= 50)) {
                     hasTakenOff = true;
                     state_ = HOVER;
                 }

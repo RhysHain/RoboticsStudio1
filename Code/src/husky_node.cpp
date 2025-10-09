@@ -14,7 +14,7 @@ HuskyNode::HuskyNode()
     goalReady = this->create_publisher<std_msgs::msg::Bool>("/CODES/husky/goal_ready", 10);
     huskyCmdPub_ = this->create_publisher<geometry_msgs::msg::Twist>("/CODES/husky/cmd_vel", 10);
     goalSub_ = this->create_subscription<geometry_msgs::msg::Pose>("/CODES/husky/goals", 10, std::bind(&HuskyNode::goal_callback,this,std::placeholders::_1));
-    odoSub_ = this->create_subscription<nav_msgs::msg::Odometry>("/CODES/husky/odom", 10, std::bind(&HuskyNode::odo_callback,this,std::placeholders::_1));
+    odoSub_ = this->create_subscription<nav_msgs::msg::Odometry>("/CODES/husky/odometry", 10, std::bind(&HuskyNode::odo_callback,this,std::placeholders::_1));
 
     commandTimer_ = this->create_wall_timer(
         std::chrono::milliseconds(50),
