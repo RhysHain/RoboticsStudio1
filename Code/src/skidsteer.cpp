@@ -77,6 +77,7 @@ void Skidsteer::reachGoal(void) {
         while (execute_) {
             std::unique_lock<std::mutex> lck(mtx);
             this->updateTravelData();
+            status_ = data::PlatformStatus::RUNNING;
             lck.unlock();
             //Move to each goal
             this->move(goals_);

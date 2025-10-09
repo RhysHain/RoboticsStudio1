@@ -1,9 +1,10 @@
 #include <sstream>
 #include <iostream>
+#include <fstream>
 #include <string>
 
-#include <thread>
 #include <mutex>
+#include <queue>
 
 #include "quadcopter.h"
 #include "skidsteer.h"
@@ -54,6 +55,15 @@ private:
   Quadcopter drone_;
 
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr goalReady;
+  std_msgs::msg::Bool isReady;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr readySub_;
+  void searchPattern(const std::shared_ptr<std_msgs::msg::Bool> boool);
+  std::queue<data::geometry_msgs::Point> searchPatternPoints_;
+  std::queue<data::geometry_msgs::Point> generateSearchPattern();
+  rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr searchPatterGoalPub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr startSearchSub_;
+  std_msgs::msg::Bool searching_;
+  void searching(const std::shared_ptr<std_msgs::msg::Bool> boool);
   geometry_msgs::msg::Twist droneCmd_;
 
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr droneCmdPub_;
@@ -66,6 +76,5 @@ private:
   void odo_callback(const std::shared_ptr<nav_msgs::msg::Odometry> odo);
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odoSub_;
   nav_msgs::msg::Odometry odo_;
-
 };
 
