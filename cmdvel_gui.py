@@ -52,6 +52,13 @@ class CmdVelNode(Node):
             10
         )
         
+        # Publisher for CODES start_search topic
+        self.codes_start_search_publisher = self.create_publisher(
+            Bool,
+            '/CODES/parrot/start_search',
+            10
+        )
+        
         # Nav2 Action Client
         self.nav_action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.current_goal_handle = None
@@ -100,6 +107,14 @@ class CmdVelNode(Node):
         self.codes_bool_publisher.publish(msg)
         self.get_logger().info('Published True to /CODES/parrot/active')
         self.signals.codes_bool_sent.emit('Active signal sent')
+
+    def publish_start_search(self):
+        """Publish True to /CODES/parrot/start_search topic"""
+        msg = Bool()
+        msg.data = True
+        self.codes_start_search_publisher.publish(msg)
+        self.get_logger().info('Published True to /CODES/parrot/start_search')
+        self.signals.codes_bool_sent.emit('Search started')
 
     def send_nav_goal(self, x, y, yaw):
         """Send navigation goal to Nav2"""
@@ -301,6 +316,21 @@ class CmdVelGUI(QMainWindow):
         """)
         self.send_codes_bool_btn.clicked.connect(self.send_codes_bool)
         drone_layout.addWidget(self.send_codes_bool_btn)
+        
+        # Send True to /CODES/parrot/start_search button
+        self.start_search_btn = QPushButton("Start Search")
+        self.start_search_btn.setFont(QFont('Arial', 11, QFont.Bold))
+        self.start_search_btn.setStyleSheet("""
+            QPushButton { 
+                background-color: #2874A6; color: white; 
+                border-radius: 5px; padding: 10px;
+            }
+            QPushButton:pressed { 
+                background-color: #1B4F72; 
+            }
+        """)
+        self.start_search_btn.clicked.connect(self.start_search)
+        drone_layout.addWidget(self.start_search_btn)
         
         # Drone status display
         self.drone_status_label = QLabel('Drone Status: Ready')
@@ -588,6 +618,13 @@ class CmdVelGUI(QMainWindow):
         """Send True to /CODES/parrot/active topic"""
         if self.node:
             self.node.publish_codes_bool()
+        else:
+            QMessageBox.warning(self, "Error", "ROS node not initialized")
+
+    def start_search(self):
+        """Send True to /CODES/parrot/start_search topic"""
+        if self.node:
+            self.node.publish_start_search()
         else:
             QMessageBox.warning(self, "Error", "ROS node not initialized")
 
