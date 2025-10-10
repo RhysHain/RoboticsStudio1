@@ -65,7 +65,7 @@ void DroneNode::activate(const std::shared_ptr<std_msgs::msg::Bool> boool) {
     active_ = boool->data;
     if (active_) {
         if (previous) {
-            RCLCPP_INFO(this->get_logger(), "Drone Already Activated");
+            RCLCPP_WARN(this->get_logger(), "Drone Already Activated");
             return;
         }
         RCLCPP_INFO(this->get_logger(), "Drone Activated");
@@ -75,7 +75,7 @@ void DroneNode::activate(const std::shared_ptr<std_msgs::msg::Bool> boool) {
             RCLCPP_INFO(this->get_logger(), "Drone Deactivated");
             return;
         }
-        RCLCPP_INFO(this->get_logger(), "Drone Already Deactivated");
+        RCLCPP_WARN(this->get_logger(), "Drone Already Deactivated");
     }
     
 }
@@ -91,10 +91,10 @@ void DroneNode::goal_callback(const std::shared_ptr<geometry_msgs::msg::Pose> po
             RCLCPP_INFO(this->get_logger(), "Drone Goal Received");
             return;
         }
-        RCLCPP_INFO(this->get_logger(), "No Goal Sent, Drone is busy");
+        RCLCPP_WARN(this->get_logger(), "No Goal Sent, Drone is busy");
         return;
     }
-    RCLCPP_INFO(this->get_logger(), "No goal sent, Drone is not active");
+    RCLCPP_WARN(this->get_logger(), "No goal sent, Drone is not active");
 }
 
 data::geometry_msgs::Point DroneNode::convertGoalType(geometry_msgs::msg::Pose goals) {
@@ -111,18 +111,32 @@ void DroneNode::odo_callback(const std::shared_ptr<nav_msgs::msg::Odometry> odo)
 }
 
 void DroneNode::searching(const std::shared_ptr<std_msgs::msg::Bool> boool) {
-    searching_ = *boool;
-    isReady.data = boool->data;
-    goalReady->publish(isReady);
-    if (boool->data) {
-        RCLCPP_INFO(this->get_logger(), "Search Pattern Started");
-        while (!searchPatternPoints_.empty()) {
-            searchPatternPoints_.pop();
+    if (active_) {
+        if (!searching_.data) {
+            if (boool->data) {
+                while (!searchPatternPoints_.empty()) {
+                    searchPatternPoints_.pop();
+                }
+                bool test;
+                searchPatternPoints_ = generateSearchPattern(test);
+                isReady.data = test;
+                goalReady->publish(isReady);
+                searching_.data = test;
+                if (test) {
+                    RCLCPP_INFO(this->get_logger(), "Search Pattern Started");
+                    RCLCPP_INFO(this->get_logger(), "Search Pattern Contains %ld Points", searchPatternPoints_.size());
+                    return;
+                }
+                RCLCPP_ERROR(this->get_logger(), "Search Pattern Failed To Start");
+                return;
+            }
+            RCLCPP_INFO(this->get_logger(), "Search Pattern Stopped");
+            return;
         }
-        searchPatternPoints_ = generateSearchPattern();
+        RCLCPP_WARN(this->get_logger(), "Search Pattern is Already Underway");
         return;
     }
-    RCLCPP_INFO(this->get_logger(), "Search Pattern Stopped");
+    RCLCPP_WARN(this->get_logger(), "Search Pattern Could Not be Started as Drone is Not Active");
 }
 
 void DroneNode::searchPattern(const std::shared_ptr<std_msgs::msg::Bool> boool) {
@@ -139,12 +153,16 @@ void DroneNode::searchPattern(const std::shared_ptr<std_msgs::msg::Bool> boool) 
     }
 }
 
-std::queue<data::geometry_msgs::Point> DroneNode::generateSearchPattern() {
+std::queue<data::geometry_msgs::Point> DroneNode::generateSearchPattern(bool& successful) {
     std::queue<data::geometry_msgs::Point> points;
+    std::string package_share_dir = ament_index_cpp::get_package_share_directory("codes");
 
-    std::ifstream infile("searchPatternPoints.txt");
+    // Path to the text file (assuming it's in my_package/share/my_package/config/points.txt)
+    std::string file_path = package_share_dir + "/config/searchPatternPoints.txt";
+    std::ifstream infile(file_path);
     if (!infile.is_open()) {
         RCLCPP_ERROR(this->get_logger(), "Error: could not open Search Pattern file.");
+        successful = false;
     }
 
     std::string line;
@@ -153,13 +171,14 @@ std::queue<data::geometry_msgs::Point> DroneNode::generateSearchPattern() {
         std::istringstream iss(line);
         data::geometry_msgs::Point p;
         if (!(iss >> p.x >> p.y >> p.z)) {
-            std::cerr << "Warning: invalid line -> " << line << std::endl;
+            RCLCPP_WARN(this->get_logger(), "Invalid Search Pattern Coordinate");
             continue;  // skip malformed lines
         }
         points.push(p);
     }
 
     infile.close();
+    successful = true;
 
     return points;
 }

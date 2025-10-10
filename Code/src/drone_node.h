@@ -22,6 +22,7 @@
 #include "geometry_msgs/msg/pose_array.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 
 
@@ -59,7 +60,7 @@ private:
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr readySub_;
   void searchPattern(const std::shared_ptr<std_msgs::msg::Bool> boool);
   std::queue<data::geometry_msgs::Point> searchPatternPoints_;
-  std::queue<data::geometry_msgs::Point> generateSearchPattern();
+  std::queue<data::geometry_msgs::Point> generateSearchPattern(bool& successful);
   rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr searchPatterGoalPub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr startSearchSub_;
   std_msgs::msg::Bool searching_;
