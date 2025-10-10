@@ -55,6 +55,10 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
 
   ament_add_ros_isolated_gtest(basic_test test/utest.cpp)
