@@ -21,14 +21,18 @@
       </attenuation>
       <direction>-0.5 0.1 -0.9</direction>
     </light>
+
+    <!-- You had zero gravity; kept as-is for drone hovering sims -->
     <gravity>0 0 0</gravity>
     <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
     <atmosphere type="adiabatic"/>
+
     <physics name="default_physics" type="ignored">
       <max_step_size>0.01</max_step_size>
       <real_time_factor>1</real_time_factor>
       <real_time_update_rate>100</real_time_update_rate>
     </physics>
+
     <scene>
       <ambient>1.0 1.0 1.0</ambient>
       <background>0.8 0.8 0.8</background>
@@ -44,32 +48,63 @@
       <surface_model>EARTH_WGS84</surface_model>
     </spherical_coordinates>
 
-    <!-- Small ground plane with grass texture -->
-    <include>
-      <uri>
-        model://grass_plane
-      </uri>
-      <name>grass_plane</name>
+    <!-- BIG flat ground plane (1000 x 1000 m) -->
+    <model name="big_grass_plane">
+      <static>true</static>
       <pose>0 0 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>1000 1000</size> <!-- meters -->
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>1000 1000</size>
+            </plane>
+          </geometry>
+          <material>
+            <!-- Simple built-in material; swap to a texture if you like -->
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/GrassFloor</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Trees (moved a bit farther apart; adjust to taste) -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak%20tree</uri>
+      <name>oak1</name>
+      <pose>0 30 0 0 0 0</pose>
     </include>
 
-    <!-- Oak tree -->
     <include>
-      <uri>
-        https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak%20tree
-      </uri>
-      <name>oak1</name>
-      <pose>0 3.0 0 0 0 0</pose>
-    </include>
-    
-    <!-- Pine tree -->
-    <include>
-      <uri>
-        https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20tree
-      </uri>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20tree</uri>
       <name>pine1</name>
-      <pose>5.0 0.0 0 0 0 0</pose>
+      <pose>50 0 0 0 0 0</pose>
     </include>
+
+    <!-- Optional: add more vegetation around -->
+    <!--
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak%20tree</uri>
+      <name>oak2</name>
+      <pose>-60 -40 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20tree</uri>
+      <name>pine2</name>
+      <pose>80 -20 0 0 0 0</pose>
+    </include>
+    -->
 
   </world>
 </sdf>
