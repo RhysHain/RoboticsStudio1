@@ -26,7 +26,7 @@ def generate_launch_description():
     ld.add_action(nav2_launch_arg)
 
     world_launch_arg = DeclareLaunchArgument(
-        'world', default_value='simple_trees', choices=['simple_trees', 'large_demo'])
+        'world', default_value='simple_trees', choices=['simple_trees', 'large_demo', 'new_world'])
     ld.add_action(world_launch_arg)
 
     # --- Gazebo world (unchanged) ---
@@ -99,9 +99,9 @@ def generate_launch_description():
         Node(
             package='ros_ign_bridge',
             executable='parameter_bridge',
-            name='gazebo_bridge_drone',
+            name='gazebo_bridge_parrot',
             parameters=[{
-                'config_file': PathJoinSubstitution([config_path, 'gazebo_bridge_drone.yaml']),
+                'config_file': PathJoinSubstitution([config_path, 'gazebo_bridge_parrot.yaml']),
                 'use_sim_time': use_sim_time
             }],
             output='screen'
@@ -116,35 +116,17 @@ def generate_launch_description():
             arguments=[
                 '-name', 'parrot',                 # <-- give the model a unique name
                 '-topic', '/parrot/robot_description',
-                '-z', '2.0'
+                '-x', '2.0', '-y', '2.0','-z', '2.0'
             ]
         ),
     ])
     ld.add_action(parrot_group)
-
-    # ---- RGBD color -> global coordinate node (subscribe to /parrot camera topics) ----
-    camera_tree_node = Node(
-        package='41068_ignition_bringup',
-        executable='camera_tree_to_map',
-        name='camera_tree_to_map',
-        output='screen',
-        parameters=[{
-            'rgb_topic':   '/parrot/camera/color/image_rect_color',
-            'depth_topic': '/parrot/camera/aligned_depth_to_color/image_raw',
-            'info_topic':  '/parrot/camera/color/camera_info',
-            'target_frame': 'map',
-            'roi_px': 7,
-            'min_m': 0.2,
-            'max_m': 20.0,
-        }]
-    )
-    ld.add_action(camera_tree_node)
     # -----------------------------------------------
 
     # =========================
     #      HUSKY ADD-ON (/husky)
     # =========================
-    husky_description_content = ParameterValue(
+    husky_description = ParameterValue(
         Command(['xacro ', PathJoinSubstitution([pkg_path, 'urdf', 'husky.urdf.xacro'])]),
         value_type=str
     )
@@ -156,7 +138,7 @@ def generate_launch_description():
             package='robot_state_publisher',
             executable='robot_state_publisher',
             parameters=[{
-                'robot_description': husky_description_content,
+                'robot_description': husky_description,
                 'use_sim_time': use_sim_time,
                 'frame_prefix': 'husky/'
             }],
