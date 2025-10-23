@@ -1,4 +1,4 @@
-#include "Mission.h"
+#include "mission.h"
 
 #include "tf2/utils.h" // for getYaw
 
@@ -22,7 +22,7 @@ void Mission::timerCallback()
 
 }
 
-void MIssion::threadFunction()
+void Mission::threadFunction()
 {
     
 }

@@ -7,8 +7,8 @@
 
 // We state the test suite name and the test name
 TEST(LaserProcessing,CountReturns){
-
-    
+    int test = 3;
+    ASSERT_EQ(test, 3);
 
 }
 

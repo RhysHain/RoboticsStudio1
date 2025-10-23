@@ -5,7 +5,7 @@
   <version>0.0.1</version>
   <description>The package for our Robotics Stuido 1 project</description>
 
-  <maintainer email="rhys.hain@studnet.uts.edu.au">Name Surname</maintainer>
+  <maintainer email="rhys.hain@studnet.uts.edu.au">Rhys Hain</maintainer>
 
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
@@ -35,7 +35,6 @@
   <depend>geometry_msgs</depend>
   <depend>rosbag2_cpp</depend>
   <depend>std_srvs</depend>
-  <depend>visualization_msgs</depend>
 
   <test_depend>ament_cmake_ros</test_depend>
   
