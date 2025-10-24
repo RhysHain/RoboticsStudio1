@@ -19,8 +19,9 @@ install(
 
 install(PROGRAMS
   scripts/camera_tree_to_map.py
+  scripts/odom_to_tf.py
+  scripts/topic_relay.py
   DESTINATION lib/${PROJECT_NAME}
-  RENAME camera_tree_to_map
 )
 
 # --- Tests (unchanged) ---

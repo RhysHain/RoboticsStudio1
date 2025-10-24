@@ -5,6 +5,7 @@ from launch.substitutions import (Command, LaunchConfiguration, PathJoinSubstitu
 from launch_ros.actions import Node, PushRosNamespace
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+from launch.actions import ExecuteProcess
 
 def generate_launch_description():
 
@@ -77,22 +78,13 @@ def generate_launch_description():
             output='screen'
         ),
 
-        # EKF with namespaced frames
+        # Publish odometry TF
         Node(
-            package='robot_localization',
-            executable='ekf_node',
-            name='robot_localization',
+            package='41068_ignition_bringup',
+            executable='odom_to_tf.py',
+            name='odom_to_tf',
             output='screen',
-            parameters=[
-                PathJoinSubstitution([config_path, 'robot_localization.yaml']),
-                {
-                    'use_sim_time': use_sim_time,
-                    'map_frame': 'map',
-                    'odom_frame': 'parrot/odom',
-                    'base_link_frame': 'parrot/base_link',
-                    'world_frame': 'parrot/odom'
-                }
-            ]
+            parameters=[{'use_sim_time': use_sim_time}]
         ),
 
         # DRONE bridge (run under /parrot so ROS topics become /parrot/*)
@@ -146,20 +138,19 @@ def generate_launch_description():
         ),
 
         Node(
-            package='robot_localization',
-            executable='ekf_node',
-            name='robot_localization',
+            package='41068_ignition_bringup',
+            executable='odom_to_tf.py',
+            name='odom_to_tf',
             output='screen',
-            parameters=[
-                PathJoinSubstitution([config_path, 'robot_localization.yaml']),
-                {
-                    'use_sim_time': use_sim_time,
-                    'map_frame': 'map',
-                    'odom_frame': 'husky/odom',
-                    'base_link_frame': 'husky/base_link',
-                    'world_frame': 'husky/odom'
-                }
-            ]
+            parameters=[{'use_sim_time': use_sim_time}]
+        ),
+
+        Node(
+            package='41068_ignition_bringup',
+            executable='topic_relay.py',
+            name='topic_relay',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time}]
         ),
 
         Node(
@@ -187,6 +178,15 @@ def generate_launch_description():
     ])
     ld.add_action(husky_group)
     # =========================
+
+    # Static transform from base_link to base_scan (for SLAM)
+    static_tf_base_scan = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_tf_base_scan',
+        arguments=['0', '0', '0.68', '0', '0', '0', 'base_link', 'base_scan']
+    )
+    ld.add_action(static_tf_base_scan)
 
     # rviz (unchanged)
     rviz_node = Node(
