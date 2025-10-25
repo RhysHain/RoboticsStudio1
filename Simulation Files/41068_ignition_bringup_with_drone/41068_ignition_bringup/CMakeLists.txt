@@ -21,6 +21,7 @@ install(PROGRAMS
   scripts/camera_tree_to_map.py
   scripts/odom_to_tf.py
   scripts/topic_relay.py
+  scripts/waypoint_navigator.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
