@@ -154,6 +154,14 @@ def generate_launch_description():
         ),
 
         Node(
+            package='41068_ignition_bringup',
+            executable='simple_navigator.py',
+            name='simple_navigator',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time}]
+        ),
+
+        Node(
             package='ros_ign_bridge',
             executable='parameter_bridge',
             name='gazebo_bridge_husky',

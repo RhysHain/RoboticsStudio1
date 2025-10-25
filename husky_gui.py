@@ -3,11 +3,8 @@
 import sys
 import rclpy
 from rclpy.node import Node
-from rclpy.action import ActionClient
 from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry
-from nav2_msgs.action import NavigateToPose
-from action_msgs.msg import GoalStatus
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
                              QWidget, QLabel, QPushButton, QSlider, QGroupBox,
                              QLineEdit, QGridLayout, QMessageBox)
@@ -19,8 +16,8 @@ import math
 class HuskySignals(QObject):
     """Signals for thread-safe GUI updates"""
     velocity_updated = pyqtSignal(float, float, float)
-    goal_status_updated = pyqtSignal(str, str)
     position_updated = pyqtSignal(float, float, float, float)  # x, y, z, yaw
+    nav_status_updated = pyqtSignal(str, str)  # status_type, message
 
 class HuskyNode(Node):
     def __init__(self, signals):
@@ -44,9 +41,19 @@ class HuskyNode(Node):
         # Publisher to send cmd_vel commands
         self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
 
-        # Nav2 Action Client
-        self.nav_action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-        self.current_goal_handle = None
+        # Simple Navigator Goal Publisher
+        self.goal_publisher = self.create_publisher(PoseStamped, '/simple_nav/goal', 10)
+
+        # Goal tracking
+        self.current_goal_x = None
+        self.current_goal_y = None
+        self.current_x = 0.0
+        self.current_y = 0.0
+        self.goal_reached = False
+        self.goal_tolerance = 0.3  # Same as simple_navigator
+
+        # Timer to check goal progress
+        self.goal_check_timer = self.create_timer(0.5, self.check_goal_progress)
 
         self.get_logger().info('Husky GUI node started')
 
@@ -61,6 +68,10 @@ class HuskyNode(Node):
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
         z = msg.pose.pose.position.z
+
+        # Update current position for goal tracking
+        self.current_x = x
+        self.current_y = y
 
         # Extract yaw from quaternion
         quat = msg.pose.pose.orientation
@@ -77,89 +88,52 @@ class HuskyNode(Node):
         msg.angular.z = angular_z
         self.publisher.publish(msg)
 
-    def send_nav_goal(self, x, y, yaw):
-        """Send navigation goal to Nav2"""
-        if not self.nav_action_client.wait_for_server(timeout_sec=2.0):
-            self.signals.goal_status_updated.emit('error', 'Nav2 action server not available')
-            self.get_logger().error('Navigate to pose action server not available')
-            return False
+    def send_simple_nav_goal(self, x, y):
+        """Send navigation goal to simple navigator"""
+        goal_msg = PoseStamped()
+        goal_msg.header.frame_id = 'map'
+        goal_msg.header.stamp = self.get_clock().now().to_msg()
+        goal_msg.pose.position.x = x
+        goal_msg.pose.position.y = y
+        goal_msg.pose.position.z = 0.0
+        goal_msg.pose.orientation.w = 1.0
 
-        goal_msg = NavigateToPose.Goal()
-        goal_msg.pose = PoseStamped()
-        goal_msg.pose.header.frame_id = 'map'
-        goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
-        goal_msg.pose.pose.position.x = x
-        goal_msg.pose.pose.position.y = y
-        goal_msg.pose.pose.position.z = 0.0
+        self.goal_publisher.publish(goal_msg)
 
-        goal_msg.pose.pose.orientation.x = 0.0
-        goal_msg.pose.pose.orientation.y = 0.0
-        goal_msg.pose.pose.orientation.z = math.sin(yaw / 2.0)
-        goal_msg.pose.pose.orientation.w = math.cos(yaw / 2.0)
+        # Update goal tracking
+        self.current_goal_x = x
+        self.current_goal_y = y
+        self.goal_reached = False
 
-        self.get_logger().info(f'Sending goal: x={x:.2f}, y={y:.2f}, yaw={yaw:.2f}')
-        self.signals.goal_status_updated.emit('sending', f'Sending goal to ({x:.2f}, {y:.2f})')
-
-        send_goal_future = self.nav_action_client.send_goal_async(
-            goal_msg,
-            feedback_callback=self.nav_feedback_callback
-        )
-        send_goal_future.add_done_callback(self.nav_goal_response_callback)
-
+        distance = math.sqrt((x - self.current_x)**2 + (y - self.current_y)**2)
+        self.signals.nav_status_updated.emit('navigating',
+            f'Navigating to ({x:.2f}, {y:.2f}) - Distance: {distance:.2f}m')
+        self.get_logger().info(f'Sent goal to simple navigator: ({x:.2f}, {y:.2f})')
         return True
 
-    def nav_goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.signals.goal_status_updated.emit('rejected', 'Goal was rejected by Nav2')
-            self.get_logger().error('Goal rejected')
+    def check_goal_progress(self):
+        """Periodically check if we've reached the goal"""
+        if self.current_goal_x is None or self.current_goal_y is None:
             return
 
-        self.current_goal_handle = goal_handle
-        self.signals.goal_status_updated.emit('accepted', 'Goal accepted, navigating...')
-        self.get_logger().info('Goal accepted')
+        if self.goal_reached:
+            return
 
-        result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(self.nav_result_callback)
+        # Calculate distance to goal
+        dx = self.current_goal_x - self.current_x
+        dy = self.current_goal_y - self.current_y
+        distance = math.sqrt(dx**2 + dy**2)
 
-    def nav_feedback_callback(self, feedback_msg):
-        pass
-
-    def nav_result_callback(self, future):
-        result = future.result()
-        status = result.status
-
-        if status == GoalStatus.STATUS_SUCCEEDED:
-            self.signals.goal_status_updated.emit('succeeded', 'Goal reached successfully!')
-            self.get_logger().info('Goal succeeded')
-        elif status == GoalStatus.STATUS_ABORTED:
-            self.signals.goal_status_updated.emit('aborted', 'Goal was aborted')
-            self.get_logger().error('Goal aborted')
-        elif status == GoalStatus.STATUS_CANCELED:
-            self.signals.goal_status_updated.emit('canceled', 'Goal was canceled')
-            self.get_logger().warn('Goal canceled')
+        if distance < self.goal_tolerance:
+            # Goal reached!
+            self.goal_reached = True
+            self.signals.nav_status_updated.emit('reached',
+                f'Goal reached! Final distance: {distance:.3f}m')
+            self.get_logger().info(f'Goal reached! Distance from target: {distance:.3f}m')
         else:
-            self.signals.goal_status_updated.emit('unknown', f'Unknown status: {status}')
-            self.get_logger().error(f'Unknown result status: {status}')
-
-        self.current_goal_handle = None
-
-    def cancel_nav_goal(self):
-        if self.current_goal_handle:
-            self.get_logger().info('Canceling current navigation goal')
-            cancel_future = self.current_goal_handle.cancel_goal_async()
-            cancel_future.add_done_callback(self.cancel_done_callback)
-            return True
-        return False
-
-    def cancel_done_callback(self, future):
-        cancel_response = future.result()
-        if len(cancel_response.goals_canceling) > 0:
-            self.signals.goal_status_updated.emit('canceling', 'Canceling navigation...')
-            self.get_logger().info('Goal cancellation accepted')
-        else:
-            self.signals.goal_status_updated.emit('error', 'Failed to cancel goal')
-            self.get_logger().error('Goal cancellation rejected')
+            # Still navigating - update distance
+            self.signals.nav_status_updated.emit('navigating',
+                f'Navigating to ({self.current_goal_x:.2f}, {self.current_goal_y:.2f}) - Distance: {distance:.2f}m')
 
 class HuskyGUI(QMainWindow):
     def __init__(self):
@@ -169,8 +143,8 @@ class HuskyGUI(QMainWindow):
 
         self.signals = HuskySignals()
         self.signals.velocity_updated.connect(self.update_velocity_display)
-        self.signals.goal_status_updated.connect(self.update_goal_status)
         self.signals.position_updated.connect(self.update_position_display)
+        self.signals.nav_status_updated.connect(self.update_nav_status)
 
         self.ros_thread = None
         self.node = None
@@ -230,8 +204,8 @@ class HuskyGUI(QMainWindow):
 
         layout.addWidget(pos_group)
 
-        # ========== NAV2 GOAL SECTION ==========
-        nav_group = QGroupBox("🎯 Nav2 Goal Control")
+        # ========== SIMPLE NAVIGATION GOAL SECTION ==========
+        nav_group = QGroupBox("🎯 Navigation Goal")
         nav_layout = QVBoxLayout(nav_group)
 
         goal_input_layout = QGridLayout()
@@ -246,57 +220,35 @@ class HuskyGUI(QMainWindow):
         self.goal_y_input.setMaximumWidth(100)
         goal_input_layout.addWidget(self.goal_y_input, 0, 3)
 
-        goal_input_layout.addWidget(QLabel('Yaw (rad):'), 1, 0)
-        self.goal_yaw_input = QLineEdit('0.0')
-        self.goal_yaw_input.setMaximumWidth(100)
-        goal_input_layout.addWidget(self.goal_yaw_input, 1, 1)
-
         nav_layout.addLayout(goal_input_layout)
 
-        goal_btn_layout = QHBoxLayout()
-
         self.send_goal_btn = QPushButton("Send Goal")
-        self.send_goal_btn.setFont(QFont('Arial', 11, QFont.Bold))
+        self.send_goal_btn.setFont(QFont('Arial', 12, QFont.Bold))
         self.send_goal_btn.setStyleSheet("""
             QPushButton {
                 background-color: #27AE60; color: white;
-                border-radius: 5px; padding: 10px;
+                border-radius: 5px; padding: 12px;
             }
             QPushButton:pressed {
                 background-color: #229954;
             }
         """)
         self.send_goal_btn.clicked.connect(self.send_nav_goal)
-        goal_btn_layout.addWidget(self.send_goal_btn)
+        nav_layout.addWidget(self.send_goal_btn)
 
-        self.cancel_goal_btn = QPushButton("Cancel Goal")
-        self.cancel_goal_btn.setFont(QFont('Arial', 11, QFont.Bold))
-        self.cancel_goal_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #E67E22; color: white;
-                border-radius: 5px; padding: 10px;
-            }
-            QPushButton:pressed {
-                background-color: #D35400;
-            }
-        """)
-        self.cancel_goal_btn.clicked.connect(self.cancel_nav_goal)
-        goal_btn_layout.addWidget(self.cancel_goal_btn)
-
-        nav_layout.addLayout(goal_btn_layout)
-
-        self.goal_status_label = QLabel('Status: Ready')
-        self.goal_status_label.setFont(QFont('Arial', 10))
-        self.goal_status_label.setStyleSheet("""
+        # Navigation status label
+        self.nav_status_label = QLabel('Status: Ready')
+        self.nav_status_label.setFont(QFont('Arial', 11, QFont.Bold))
+        self.nav_status_label.setStyleSheet("""
             QLabel {
                 background-color: #F8F9F9;
-                padding: 8px;
+                padding: 10px;
                 border-radius: 5px;
                 color: #566573;
             }
         """)
-        self.goal_status_label.setWordWrap(True)
-        nav_layout.addWidget(self.goal_status_label)
+        self.nav_status_label.setWordWrap(True)
+        nav_layout.addWidget(self.nav_status_label)
 
         layout.addWidget(nav_group)
 
@@ -488,42 +440,29 @@ class HuskyGUI(QMainWindow):
         try:
             x = float(self.goal_x_input.text())
             y = float(self.goal_y_input.text())
-            yaw = float(self.goal_yaw_input.text())
 
             if self.node:
-                self.node.send_nav_goal(x, y, yaw)
+                self.node.send_simple_nav_goal(x, y)
             else:
                 QMessageBox.warning(self, "Error", "ROS node not initialized")
 
         except ValueError:
-            QMessageBox.warning(self, "Invalid Input", "Please enter valid numbers for X, Y, and Yaw")
+            QMessageBox.warning(self, "Invalid Input", "Please enter valid numbers for X and Y")
 
-    def cancel_nav_goal(self):
-        if self.node:
-            if not self.node.cancel_nav_goal():
-                QMessageBox.information(self, "Info", "No active goal to cancel")
-        else:
-            QMessageBox.warning(self, "Error", "ROS node not initialized")
-
-    def update_goal_status(self, status, message):
+    def update_nav_status(self, status_type, message):
+        """Update navigation status label with color coding"""
         status_colors = {
-            'sending': '#3498DB',
-            'accepted': '#F39C12',
-            'succeeded': '#27AE60',
-            'aborted': '#E74C3C',
-            'canceled': '#95A5A6',
-            'error': '#C0392B',
-            'canceling': '#E67E22',
-            'rejected': '#E74C3C',
-            'unknown': '#7F8C8D'
+            'navigating': '#F39C12',  # Orange - in progress
+            'reached': '#27AE60',      # Green - success
+            'idle': '#566573'          # Gray - idle
         }
 
-        color = status_colors.get(status, '#566573')
-        self.goal_status_label.setText(f'Nav2 Status: {message}')
-        self.goal_status_label.setStyleSheet(f"""
+        color = status_colors.get(status_type, '#566573')
+        self.nav_status_label.setText(message)
+        self.nav_status_label.setStyleSheet(f"""
             QLabel {{
                 background-color: #F8F9F9;
-                padding: 8px;
+                padding: 10px;
                 border-radius: 5px;
                 color: {color};
                 font-weight: bold;
@@ -576,7 +515,6 @@ class HuskyGUI(QMainWindow):
     def emergency_stop(self):
         if self.node:
             self.node.publish_velocity(0.0, 0.0, 0.0)
-            self.node.cancel_nav_goal()
 
         self.key_forward = False
         self.key_backward = False

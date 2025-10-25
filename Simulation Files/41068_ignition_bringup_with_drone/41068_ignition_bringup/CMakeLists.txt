@@ -22,6 +22,7 @@ install(PROGRAMS
   scripts/odom_to_tf.py
   scripts/topic_relay.py
   scripts/waypoint_navigator.py
+  scripts/simple_navigator.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
