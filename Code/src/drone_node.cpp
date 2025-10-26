@@ -107,6 +107,10 @@ data::geometry_msgs::Point DroneNode::convertGoalType(geometry_msgs::msg::Pose g
 
 void DroneNode::odo_callback(const std::shared_ptr<nav_msgs::msg::Odometry> odo) {
     odo_ = *odo;
+    // odo_.pose.pose.position.y = odo->pose.pose.position.z;
+    // odo_.pose.pose.position.z = odo->pose.pose.position.y;
+    // odo_.twist.twist.linear.y = odo->twist.twist.linear.z;
+    // odo_.twist.twist.linear.z = odo->twist.twist.linear.y;
     drone_.setOdometry(odo_);
 }
 

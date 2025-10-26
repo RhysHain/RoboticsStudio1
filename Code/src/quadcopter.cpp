@@ -100,6 +100,7 @@ void Quadcopter::reachGoal(void) {
             lck.lock();
             //Platform set to idle once all goals reached
             execute_ = false;
+            this->sendCmd(0,0,0,0,false);
             status_ = data::PlatformStatus::IDLE;
             lck.unlock();
         }
@@ -109,10 +110,10 @@ void Quadcopter::reachGoal(void) {
 double Quadcopter::getToHeight(int height) {
     data::nav_msgs::Odometry odo = this->getOdometry();
     double up;
-    if (odo.position.z < height) {
+    if (odo.position.z < height - 2) {
         up = 1;
     }
-    else if (odo.position.z > height + 0.5) {
+    else if (odo.position.z > height + 2) {
         up = -1;
     }
     else {
@@ -172,7 +173,7 @@ bool Quadcopter::move(GoalStats goal) {
                 break;
         }
         this->updateTravelData();
-        this->sendCmd(turn, 0, this->getToHeight(10), forward, false);
+        this->sendCmd(turn, 0, this->getToHeight(5), forward, false);
         lck.unlock();
         std::this_thread::sleep_for(std::chrono::milliseconds(20));//Small delay to ensure message sent
     }
