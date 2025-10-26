@@ -1,0 +1,18 @@
+# IDE folders
+.vscode/
+
+# Build artifacts
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# C++
+*.o
+*.so
+*.a
