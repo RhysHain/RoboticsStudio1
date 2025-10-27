@@ -101,127 +101,127 @@
     <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x-10_y-10</name>
-        <pose>-10 -10 -0.3 0 0 0</pose>
+        <pose>-10 -10 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x-5_y-10</name>
-        <pose>-5 -10 -0.3 0 0 0</pose>
+        <pose>-5 -10 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x0_y-10</name>
-        <pose>0 -10 -0.3 0 0 0</pose>
+        <pose>0 -10 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x5_y-10</name>
-        <pose>5 -10 -0.3 0 0 0</pose>
+        <pose>5 -10 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x10_y-10</name>
-        <pose>10 -10 -0.3 0 0 0</pose>
+        <pose>10 -10 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x-10_y-5</name>
-        <pose>-10 -5 -0.3 0 0 0</pose>
+        <pose>-10 -5 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x-5_y-5</name>
-        <pose>-5 -5 -0.3 0 0 0</pose>
+        <pose>-5 -5 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x0_y-5</name>
-        <pose>0 -5 -0.3 0 0 0</pose>
+        <pose>0 -5 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x5_y-5</name>
-        <pose>5 -5 -0.3 0 0 0</pose>
+        <pose>5 -5 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x10_y-5</name>
-        <pose>10 -5 -0.3 0 0 0</pose>
+        <pose>10 -5 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x-10_y0</name>
-        <pose>-10 0 -0.3 0 0 0</pose>
+        <pose>-10 0 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x-5_y0</name>
-        <pose>-5 0 -0.3 0 0 0</pose>
+        <pose>-5 0 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x0_y0</name>
-        <pose>0 0 -0.3 0 0 0</pose>
+        <pose>0 0 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x5_y0</name>
-        <pose>5 0 -0.3 0 0 0</pose>
+        <pose>5 0 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x10_y0</name>
-        <pose>10 0 -0.3 0 0 0</pose>
+        <pose>10 0 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x-10_y5</name>
-        <pose>-10 5 -0.3 0 0 0</pose>
+        <pose>-10 5 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x-5_y5</name>
-        <pose>-5 5 -0.3 0 0 0</pose>
+        <pose>-5 5 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x0_y5</name>
-        <pose>0 5 -0.3 0 0 0</pose>
+        <pose>0 5 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x5_y5</name>
-        <pose>5 5 -0.3 0 0 0</pose>
+        <pose>5 5 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x10_y5</name>
-        <pose>10 5 -0.3 0 0 0</pose>
+        <pose>10 5 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x-10_y10</name>
-        <pose>-10 10 -0.3 0 0 0</pose>
+        <pose>-10 10 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x-5_y10</name>
-        <pose>-5 10 -0.3 0 0 0</pose>
+        <pose>-5 10 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x0_y10</name>
-        <pose>0 10 -0.3 0 0 0</pose>
+        <pose>0 10 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x5_y10</name>
-        <pose>5 10 -0.3 0 0 0</pose>
+        <pose>5 10 -0.5 0 0 0</pose>
       </include>
       <include>
         <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/oak%20tree</uri>
         <name>oak_x10_y10</name>
-        <pose>10 10 -0.3 0 0 0</pose>
+        <pose>10 10 -0.5 0 0 0</pose>
       </include>
 
     <!-- South wall - inline models with box collision AND visual -->
