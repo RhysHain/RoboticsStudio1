@@ -13,7 +13,7 @@ find_package(ros_ign_interfaces REQUIRED)
 
 # --- Install data (unchanged) ---
 install(
-  DIRECTORY config launch models urdf worlds urdf_drone
+  DIRECTORY config launch maps models urdf worlds urdf_drone
   DESTINATION share/${PROJECT_NAME}
 )
 
