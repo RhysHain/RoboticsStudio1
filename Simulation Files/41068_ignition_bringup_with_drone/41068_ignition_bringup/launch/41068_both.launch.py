@@ -180,7 +180,7 @@ def generate_launch_description():
             arguments=[
                 '-name', 'husky',
                 '-topic', '/husky/robot_description',
-                '-x', '0.0', '-y', '0.0', '-z', '0.4'
+                '-x', '1.0', '-y', '1.0', '-z', '0.4'
             ]
         ),
     ])
