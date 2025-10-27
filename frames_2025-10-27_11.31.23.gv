@@ -1,0 +1,27 @@
+digraph G {
+"parrot/camera_link" -> "parrot/camera_depth_frame"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"parrot/base_link" -> "parrot/camera_link"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"parrot/camera_depth_frame" -> "parrot/camera_depth_optical_frame"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"parrot/camera_link" -> "parrot/camera_rgb_frame"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"parrot/camera_rgb_frame" -> "parrot/camera_rgb_optical_frame"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"parrot/base_link" -> "parrot/imu_link"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"parrot/base_link" -> "parrot/base_scan"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"odom" -> "base_link"[label=" Broadcaster: default_authority\nAverage rate: 38.235\nBuffer length: 1.7\nMost recent transform: 89.4\nOldest transform: 87.7\n"];
+"husky/odom" -> "husky/base_link"[label=" Broadcaster: default_authority\nAverage rate: 25.0\nBuffer length: 0.2\nMost recent transform: 48.25\nOldest transform: 48.05\n"];
+"map" -> "husky/odom"[label=" Broadcaster: default_authority\nAverage rate: 107.692\nBuffer length: 0.13\nMost recent transform: 49.23\nOldest transform: 49.1\n"];
+"husky/camera_link" -> "husky/camera_depth_frame"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"husky/base_link" -> "husky/camera_link"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"husky/camera_depth_frame" -> "husky/camera_depth_optical_frame"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"husky/camera_link" -> "husky/camera_rgb_frame"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"husky/camera_rgb_frame" -> "husky/camera_rgb_optical_frame"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"husky/base_link" -> "husky/imu_link"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"husky/base_link" -> "husky/base_scan"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"husky/base_link" -> "husky/front_left_wheel_link"[label=" Broadcaster: default_authority\nAverage rate: 21.0\nBuffer length: 1.0\nMost recent transform: 89.32\nOldest transform: 88.32\n"];
+"husky/base_link" -> "husky/front_right_wheel_link"[label=" Broadcaster: default_authority\nAverage rate: 21.0\nBuffer length: 1.0\nMost recent transform: 89.32\nOldest transform: 88.32\n"];
+"husky/base_link" -> "husky/rear_left_wheel_link"[label=" Broadcaster: default_authority\nAverage rate: 21.0\nBuffer length: 1.0\nMost recent transform: 89.32\nOldest transform: 88.32\n"];
+"husky/base_link" -> "husky/rear_right_wheel_link"[label=" Broadcaster: default_authority\nAverage rate: 21.0\nBuffer length: 1.0\nMost recent transform: 89.32\nOldest transform: 88.32\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1761525083.907219"[ shape=plaintext ] ;
+}->"map";
+}

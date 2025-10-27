@@ -188,13 +188,8 @@ def generate_launch_description():
     # =========================
 
     # Static transform from base_link to base_scan (for SLAM)
-    static_tf_base_scan = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='static_tf_base_scan',
-        arguments=['0', '0', '0.68', '0', '0', '0', 'base_link', 'base_scan']
-    )
-    ld.add_action(static_tf_base_scan)
+    # Note: Removed - this is already handled by robot_state_publisher with the husky namespace
+    # The sensor frame is properly configured in husky.gazebo.xacro with gz_frame_id
 
     # rviz (unchanged)
     rviz_node = Node(

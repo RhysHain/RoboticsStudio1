@@ -12,7 +12,7 @@
       <visualize>$(arg imu_visual)</visualize>
       <update_rate>100</update_rate>
       <topic>model/parrot/imu</topic>
-      <gz_frame_id>imu_link</gz_frame_id>
+      <gz_frame_id>parrot/imu_link</gz_frame_id>
       <imu>
         <angular_velocity>
           <x>
@@ -91,8 +91,8 @@
       name="ignition::gazebo::systems::OdometryPublisher">
       <topic>model/parrot/odometry</topic>
       <odom_publish_frequency>20</odom_publish_frequency>
-      <odom_frame>odom</odom_frame>
-      <robot_base_frame>base_link</robot_base_frame>
+      <odom_frame>parrot/odom</odom_frame>
+      <robot_base_frame>parrot/base_link</robot_base_frame>
     </plugin>
   </gazebo>
 
@@ -111,7 +111,7 @@
       <visualize>$(arg laser_visual)</visualize>
       <topic>model/parrot/scan</topic>
       <update_rate>3</update_rate>
-      <gz_frame_id>base_scan</gz_frame_id>
+      <gz_frame_id>parrot/base_scan</gz_frame_id>
       <ray>
         <scan>
           <horizontal>
@@ -166,7 +166,7 @@
       <update_rate>3</update_rate> <!--10-->
       <visualize>$(arg camera_visual)</visualize>
       <topic>/model/parrot/camera</topic>
-      <gz_frame_id>camera_link</gz_frame_id>
+      <gz_frame_id>parrot/camera_link</gz_frame_id>
     </sensor>
   </gazebo>
 
