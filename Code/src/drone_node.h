@@ -74,8 +74,8 @@ private:
   data::geometry_msgs::Point goal;
   data::geometry_msgs::Point convertGoalType(geometry_msgs::msg::Pose goals);
 
-  void odo_callback(const std::shared_ptr<nav_msgs::msg::Odometry> odo);
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odoSub_;
+  void pose_callback(const std::shared_ptr<geometry_msgs::msg::PoseArray> poses);
+  rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr poseSub_;
   nav_msgs::msg::Odometry odo_;
 };
 

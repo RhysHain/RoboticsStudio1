@@ -12,9 +12,9 @@ DroneNode::DroneNode()
 {
     activeSub_ = this->create_subscription<std_msgs::msg::Bool>("/CODES/parrot/active", 10, std::bind(&DroneNode::activate,this, std::placeholders::_1));
     goalReady = this->create_publisher<std_msgs::msg::Bool>("/CODES/parrot/goal_ready", 10);
-    droneCmdPub_ = this->create_publisher<geometry_msgs::msg::Twist>("/CODES/parrot/cmd_vel", 10);
+    droneCmdPub_ = this->create_publisher<geometry_msgs::msg::Twist>("/parrot/cmd_vel", 10);
     goalSub_ = this->create_subscription<geometry_msgs::msg::Pose>("CODES/parrot/goals", 10, std::bind(&DroneNode::goal_callback,this,std::placeholders::_1));
-    odoSub_ = this->create_subscription<nav_msgs::msg::Odometry>("/CODES/parrot/odometry", 10, std::bind(&DroneNode::odo_callback,this,std::placeholders::_1));
+    poseSub_ = this->create_subscription<geometry_msgs::msg::PoseArray>("/parrot/pose", 10, std::bind(&DroneNode::pose_callback,this,std::placeholders::_1));
     readySub_ = this->create_subscription<std_msgs::msg::Bool>("/CODES/parrot/goal_ready", 10, std::bind(&DroneNode::searchPattern,this, std::placeholders::_1));
     startSearchSub_ = this->create_subscription<std_msgs::msg::Bool>("/CODES/parrot/start_search", 10, std::bind(&DroneNode::searching,this, std::placeholders::_1));
     searchPatterGoalPub_ = this->create_publisher<geometry_msgs::msg::Pose>("/CODES/parrot/goals", 10);
@@ -47,14 +47,19 @@ void DroneNode::commandTimer_callback() {
         data::commands::Quadcopter cmd = drone_.getCommands();
         droneCmd_.linear.x = cmd.move_f_b;
         droneCmd_.linear.y = cmd.move_l_r;
-        droneCmd_.linear.z = cmd.move_u_d;
+        if (cmd.move_u_d == 0) {
+            droneCmd_.linear.z = 0.1;
+        }
+        else {
+            droneCmd_.linear.z = cmd.move_u_d;
+        }
         droneCmd_.angular.z = cmd.turn_l_r;
         droneCmdPub_->publish(droneCmd_);
         return;
     }
     droneCmd_.linear.x = 0;
     droneCmd_.linear.y = 0;
-    droneCmd_.linear.z = 0;
+    droneCmd_.linear.z = 0.1;
     droneCmd_.angular.z = 0;
     droneCmdPub_->publish(droneCmd_);
     
@@ -105,12 +110,9 @@ data::geometry_msgs::Point DroneNode::convertGoalType(geometry_msgs::msg::Pose g
     return goalsToSet;
 }
 
-void DroneNode::odo_callback(const std::shared_ptr<nav_msgs::msg::Odometry> odo) {
-    odo_ = *odo;
-    // odo_.pose.pose.position.y = odo->pose.pose.position.z;
-    // odo_.pose.pose.position.z = odo->pose.pose.position.y;
-    // odo_.twist.twist.linear.y = odo->twist.twist.linear.z;
-    // odo_.twist.twist.linear.z = odo->twist.twist.linear.y;
+void DroneNode::pose_callback(const std::shared_ptr<geometry_msgs::msg::PoseArray> poses) {
+    geometry_msgs::msg::Pose pose = poses->poses.at(1);
+    odo_.pose.pose = pose;
     drone_.setOdometry(odo_);
 }
 
@@ -145,6 +147,11 @@ void DroneNode::searching(const std::shared_ptr<std_msgs::msg::Bool> boool) {
 
 void DroneNode::searchPattern(const std::shared_ptr<std_msgs::msg::Bool> boool) {
     if (boool->data && searching_.data) {
+        if (searchPatternPoints_.empty()) {
+            searching_.data = false;
+            RCLCPP_INFO(this->get_logger(), "Search Pattern Finished");
+            return;
+        }
         geometry_msgs::msg::Pose goal;
         data::geometry_msgs::Point nextPoint = searchPatternPoints_.front();
         searchPatternPoints_.pop();
