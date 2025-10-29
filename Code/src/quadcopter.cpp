@@ -87,7 +87,7 @@ void Quadcopter::reachGoal(void) {
             while (!hasTakenOff) {
                 this->sendCmd(0,0,0,0,true);
                 state_ = LAUNCHING;
-                this->sendCmd(0,0,this->getToHeight(20), 0, false);
+                this->sendCmd(0,0,this->getToHeight(goals_.location.z), 0, false);
                 count++;
                 if ((this->getOdometry().position.z > 2) || (count >= 50)) {
                     hasTakenOff = true;
@@ -110,10 +110,10 @@ void Quadcopter::reachGoal(void) {
 double Quadcopter::getToHeight(int height) {
     data::nav_msgs::Odometry odo = this->getOdometry();
     double up;
-    if (odo.position.z < height - 2) {
+    if (odo.position.z < height - 0.4) {
         up = 1;
     }
-    else if (odo.position.z > height + 2) {
+    else if (odo.position.z > height + 0.4) {
         up = -1;
     }
     else {
@@ -173,7 +173,7 @@ bool Quadcopter::move(GoalStats goal) {
                 break;
         }
         this->updateTravelData();
-        this->sendCmd(turn, 0, this->getToHeight(10), forward, false);
+        this->sendCmd(turn, 0, this->getToHeight(goals_.location.z), forward, false);
         lck.unlock();
         std::this_thread::sleep_for(std::chrono::milliseconds(20));//Small delay to ensure message sent
     }

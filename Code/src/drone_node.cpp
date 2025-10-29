@@ -6,6 +6,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 using namespace std::chrono_literals; // Needed in the 1s wait for future
+using namespace controller;
 
 DroneNode::DroneNode() 
     : Node("Drone_Node")
@@ -15,12 +16,17 @@ DroneNode::DroneNode()
     droneCmdPub_ = this->create_publisher<geometry_msgs::msg::Twist>("/parrot/cmd_vel", 10);
     goalSub_ = this->create_subscription<geometry_msgs::msg::Pose>("CODES/parrot/goals", 10, std::bind(&DroneNode::goal_callback,this,std::placeholders::_1));
     poseSub_ = this->create_subscription<geometry_msgs::msg::PoseArray>("/parrot/pose", 10, std::bind(&DroneNode::pose_callback,this,std::placeholders::_1));
+    odoSub_ = this->create_subscription<nav_msgs::msg::Odometry>("/parrot/odometry", 10, std::bind(&DroneNode::odo_callback,this,std::placeholders::_1));
     readySub_ = this->create_subscription<std_msgs::msg::Bool>("/CODES/parrot/goal_ready", 10, std::bind(&DroneNode::searchPattern,this, std::placeholders::_1));
     startSearchSub_ = this->create_subscription<std_msgs::msg::Bool>("/CODES/parrot/start_search", 10, std::bind(&DroneNode::searching,this, std::placeholders::_1));
     searchPatterGoalPub_ = this->create_publisher<geometry_msgs::msg::Pose>("/CODES/parrot/goals", 10);
     commandTimer_ = this->create_wall_timer(
         std::chrono::milliseconds(50),
         std::bind(&DroneNode::commandTimer_callback, this));
+
+    debugTimer_ = this->create_wall_timer(
+        std::chrono::milliseconds(500),
+        std::bind(&DroneNode::debugTimer_callback, this));
 
     active_ = false;
     isReady.data = false;
@@ -65,6 +71,31 @@ void DroneNode::commandTimer_callback() {
     
 }
 
+void DroneNode::debugTimer_callback() {
+    // if (active_) {
+    //     auto state = drone_.getState();
+    //     switch(state) {
+    //         case HOVER:
+    //             RCLCPP_INFO(this->get_logger(), "HOVERING");
+    //             break;
+
+    //         case TURNING:
+    //             RCLCPP_INFO(this->get_logger(), "TURNING");
+    //             break;
+
+    //         case CRUISING:
+    //             RCLCPP_INFO(this->get_logger(), "CRUISING");
+    //             break;
+
+    //         case BREAKING:
+    //             RCLCPP_INFO(this->get_logger(), "BREAKING");
+    //             break;
+    //     }
+    //     auto odo = drone_.getOdometry();
+    //     RCLCPP_INFO(this->get_logger(), "Drone has odo [%.2f, %.2f, %.2f]", odo.position.x, odo.position.y, odo.position.z);
+    // }
+}
+    
 void DroneNode::activate(const std::shared_ptr<std_msgs::msg::Bool> boool) {
     bool previous = active_;
     active_ = boool->data;
@@ -110,8 +141,11 @@ data::geometry_msgs::Point DroneNode::convertGoalType(geometry_msgs::msg::Pose g
     return goalsToSet;
 }
 
+void DroneNode::odo_callback(const std::shared_ptr<nav_msgs::msg::Odometry> odo) {
+    odo_ = *odo;
+}
 void DroneNode::pose_callback(const std::shared_ptr<geometry_msgs::msg::PoseArray> poses) {
-    geometry_msgs::msg::Pose pose = poses->poses.at(1);
+    geometry_msgs::msg::Pose pose = poses->poses.at(0);
     odo_.pose.pose = pose;
     drone_.setOdometry(odo_);
 }

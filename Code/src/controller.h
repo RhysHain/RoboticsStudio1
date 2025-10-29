@@ -122,6 +122,8 @@ class Controller
 
     void setOdometry(nav_msgs::msg::Odometry odo);
 
+    controller::MovementState getState(void);
+
   protected:
     /// @brief Updates the current travel data of the platform
     ///

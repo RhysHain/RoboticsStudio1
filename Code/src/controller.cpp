@@ -101,3 +101,7 @@ void Controller::updateTravelData() {
     timeInMotion_ = timeInMotion_ + odo.time - initialOdo_.time;
     initialOdo_ = odo;
 }
+
+controller::MovementState Controller::getState(void) {
+    return state_;
+}

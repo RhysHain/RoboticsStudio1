@@ -5,6 +5,7 @@
 
 #include <mutex>
 #include <queue>
+#include <atomic>
 
 #include "quadcopter.h"
 #include "skidsteer.h"
@@ -50,6 +51,9 @@ private:
   rclcpp::TimerBase::SharedPtr commandTimer_;
   bool active_;
 
+  void debugTimer_callback();
+  rclcpp::TimerBase::SharedPtr debugTimer_;
+
   void activate(const std::shared_ptr<std_msgs::msg::Bool> boool);
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr activeSub_;
 
@@ -76,6 +80,10 @@ private:
 
   void pose_callback(const std::shared_ptr<geometry_msgs::msg::PoseArray> poses);
   rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr poseSub_;
+  std::atomic<double> z_;
+  
+  void odo_callback(const std::shared_ptr<nav_msgs::msg::Odometry> odo);
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odoSub_;
   nav_msgs::msg::Odometry odo_;
 };
 

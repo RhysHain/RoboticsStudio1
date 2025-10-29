@@ -27,7 +27,7 @@ def generate_launch_description():
     ld.add_action(nav2_launch_arg)
 
     world_launch_arg = DeclareLaunchArgument(
-        'world', default_value='simple_trees', choices=['simple_trees', 'large_demo', 'new_world'])
+        'world', default_value='simple_trees', choices=['simple_trees', 'large_demo', 'new_world', 'final_world', 'generated_world'])
     ld.add_action(world_launch_arg)
 
     # --- Gazebo world (unchanged) ---
