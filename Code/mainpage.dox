@@ -1,7 +1,31 @@
 
-/** \mainpage
-
-sititng here ready for a mainpage to be made eventually
-
-*/
-
+/**
+ * @mainpage Project Codes Vehicle Control
+ *
+ * @section intro_sec Introduction
+ *
+ * This is the main page of the documentation for **Project Name**.
+ * 
+ * Here you can describe:
+ * - What the project does
+ * - How to build it
+ * - How to use it
+ *
+ * @section install_sec Installation
+ *
+ * 1. Clone the repository.
+ * 2. Run `cmake` and `make`.
+ * 3. Launch the application.
+ *
+ * @section usage_sec Usage
+ *
+ * Example command:
+ * @code
+ * ./my_app --option value
+ * @endcode
+ *
+ * @section files_sec Code Structure
+ * - `src/` — source code
+ * - `include/` — header files
+ * - `docs/` — documentation files
+ */

@@ -5,6 +5,7 @@ from launch.substitutions import (Command, LaunchConfiguration, PathJoinSubstitu
 from launch_ros.actions import Node, PushRosNamespace
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+from launch.actions import ExecuteProcess
 
 def generate_launch_description():
 
@@ -26,7 +27,7 @@ def generate_launch_description():
     ld.add_action(nav2_launch_arg)
 
     world_launch_arg = DeclareLaunchArgument(
-        'world', default_value='simple_trees', choices=['simple_trees', 'large_demo'])
+        'world', default_value='simple_trees', choices=['simple_trees', 'large_demo', 'new_world', 'final_world', 'generated_world'])
     ld.add_action(world_launch_arg)
 
     # --- Gazebo world (unchanged) ---
@@ -77,31 +78,22 @@ def generate_launch_description():
             output='screen'
         ),
 
-        # EKF with namespaced frames
+        # Publish odometry TF
         Node(
-            package='robot_localization',
-            executable='ekf_node',
-            name='robot_localization',
+            package='41068_ignition_bringup',
+            executable='odom_to_tf.py',
+            name='odom_to_tf',
             output='screen',
-            parameters=[
-                PathJoinSubstitution([config_path, 'robot_localization.yaml']),
-                {
-                    'use_sim_time': use_sim_time,
-                    'map_frame': 'map',
-                    'odom_frame': 'parrot/odom',
-                    'base_link_frame': 'parrot/base_link',
-                    'world_frame': 'parrot/odom'
-                }
-            ]
+            parameters=[{'use_sim_time': use_sim_time}]
         ),
 
         # DRONE bridge (run under /parrot so ROS topics become /parrot/*)
         Node(
             package='ros_ign_bridge',
             executable='parameter_bridge',
-            name='gazebo_bridge_drone',
+            name='gazebo_bridge_parrot',
             parameters=[{
-                'config_file': PathJoinSubstitution([config_path, 'gazebo_bridge_drone.yaml']),
+                'config_file': PathJoinSubstitution([config_path, 'gazebo_bridge_parrot.yaml']),
                 'use_sim_time': use_sim_time
             }],
             output='screen'
@@ -116,35 +108,17 @@ def generate_launch_description():
             arguments=[
                 '-name', 'parrot',                 # <-- give the model a unique name
                 '-topic', '/parrot/robot_description',
-                '-z', '2.0'
+                '-x', '2.0', '-y', '2.0','-z', '2.0'
             ]
         ),
     ])
     ld.add_action(parrot_group)
-
-    # ---- RGBD color -> global coordinate node (subscribe to /parrot camera topics) ----
-    camera_tree_node = Node(
-        package='41068_ignition_bringup',
-        executable='camera_tree_to_map',
-        name='camera_tree_to_map',
-        output='screen',
-        parameters=[{
-            'rgb_topic':   '/parrot/camera/color/image_rect_color',
-            'depth_topic': '/parrot/camera/aligned_depth_to_color/image_raw',
-            'info_topic':  '/parrot/camera/color/camera_info',
-            'target_frame': 'map',
-            'roi_px': 7,
-            'min_m': 0.2,
-            'max_m': 20.0,
-        }]
-    )
-    ld.add_action(camera_tree_node)
     # -----------------------------------------------
 
     # =========================
     #      HUSKY ADD-ON (/husky)
     # =========================
-    husky_description_content = ParameterValue(
+    husky_description = ParameterValue(
         Command(['xacro ', PathJoinSubstitution([pkg_path, 'urdf', 'husky.urdf.xacro'])]),
         value_type=str
     )
@@ -156,7 +130,7 @@ def generate_launch_description():
             package='robot_state_publisher',
             executable='robot_state_publisher',
             parameters=[{
-                'robot_description': husky_description_content,
+                'robot_description': husky_description,
                 'use_sim_time': use_sim_time,
                 'frame_prefix': 'husky/'
             }],
@@ -164,20 +138,27 @@ def generate_launch_description():
         ),
 
         Node(
-            package='robot_localization',
-            executable='ekf_node',
-            name='robot_localization',
+            package='41068_ignition_bringup',
+            executable='odom_to_tf.py',
+            name='odom_to_tf',
             output='screen',
-            parameters=[
-                PathJoinSubstitution([config_path, 'robot_localization.yaml']),
-                {
-                    'use_sim_time': use_sim_time,
-                    'map_frame': 'map',
-                    'odom_frame': 'husky/odom',
-                    'base_link_frame': 'husky/base_link',
-                    'world_frame': 'husky/odom'
-                }
-            ]
+            parameters=[{'use_sim_time': use_sim_time}]
+        ),
+
+        Node(
+            package='41068_ignition_bringup',
+            executable='topic_relay.py',
+            name='topic_relay',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time}]
+        ),
+
+        Node(
+            package='41068_ignition_bringup',
+            executable='simple_navigator.py',
+            name='simple_navigator',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time}]
         ),
 
         Node(
@@ -205,6 +186,15 @@ def generate_launch_description():
     ])
     ld.add_action(husky_group)
     # =========================
+
+    # Static transform from base_link to base_scan (for SLAM)
+    static_tf_base_scan = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_tf_base_scan',
+        arguments=['0', '0', '0.68', '0', '0', '0', 'base_link', 'base_scan']
+    )
+    ld.add_action(static_tf_base_scan)
 
     # rviz (unchanged)
     rviz_node = Node(

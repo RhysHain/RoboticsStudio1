@@ -11,14 +11,14 @@ int main(int argc, char **argv)
 
   // Create two nodes
   auto node1 = std::make_shared<DroneNode>();
-  auto node2 = std::make_shared<HuskyNode>(); 
+  // auto node2 = std::make_shared<HuskyNode>(); 
 
   // Create an executor
   rclcpp::executors::MultiThreadedExecutor executor;
 
   // Add nodes to the executor
   executor.add_node(node1);
-  executor.add_node(node2);
+  // executor.add_node(node2);
 
   // Spin the executor
   executor.spin();

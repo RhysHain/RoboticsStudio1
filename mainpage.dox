@@ -1,0 +1,30 @@
+
+/**
+ * @mainpage Project Codes
+ *
+ * @section intro_sec Introduction
+ *
+ * Put Introduction Here
+ * 
+ * Here you can describe:
+ * - What the project does
+ * - How to build it
+ * - How to use it
+ *
+ * @section install_sec Installation
+ *
+ * 1. Clone the repository.
+ * 2. Run `cmake` and `make`.
+ * 3. Launch the application.
+ *
+ * @section usage_sec Usage
+ *
+ * Example command:
+ * @code
+ * ./my_app --option value
+ * @endcode
+ *
+ * @section files_sec Code Structure
+ * - `Code/src/` — c++ source code
+ * - `Python/` — Python source files
+ */
