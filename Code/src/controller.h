@@ -38,6 +38,7 @@ namespace controller {
   }MovementState;
 }
 
+/// @brief Class for controlling platforms
 class Controller
 {
   public:
@@ -119,9 +120,13 @@ class Controller
     ///
     /// This function has not been fully implemented as SUPER mode was not attempted
     std::vector<data::geometry_msgs::Point> getObstacles(void);
-
+    
+    /// @brief Sets the platform odometry
+    /// @param[in] odo The Odometry to be set
     void setOdometry(nav_msgs::msg::Odometry odo);
 
+    /// @brief Gets the current movement state of the platform
+    /// @return The movement state
     controller::MovementState getState(void);
 
   protected:

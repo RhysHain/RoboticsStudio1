@@ -23,7 +23,7 @@
 
 
 
-
+/// @brief ROS2 Humble node for controlling the husky
 class HuskyNode : public rclcpp::Node{
 
 public:

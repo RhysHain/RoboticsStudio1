@@ -3,6 +3,7 @@
 
 #include "controller.h"
 
+/// @brief Class for controlling a skidsteer
 class Skidsteer: public Controller
 {
 public:

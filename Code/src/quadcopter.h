@@ -3,6 +3,7 @@
 
 #include "controller.h"
 
+/// @brief Class for controlling a quadcopter
 class Quadcopter: public Controller
 {
 public:
@@ -33,6 +34,8 @@ public:
     double& time,
     data::nav_msgs::Odometry& estimatedGoalPose);
 
+  /// @brief Gets the drone commands
+  /// @return The drone commands
   data::commands::Quadcopter getCommands();
 
 private: 
@@ -67,7 +70,7 @@ private:
   /// @return The command needed for the quadcopter
   double getToHeight(int height);
 
-  data::commands::Quadcopter cmd_;
+  data::commands::Quadcopter cmd_; ///< Stores the drone commands to be sent
 };
 
 #endif // QUADCOPTER_H
