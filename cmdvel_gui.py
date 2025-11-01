@@ -470,7 +470,7 @@ class CmdVelGUI(QMainWindow):
                 background-color: #2980B9;
             }
         """)
-        self.forward_btn.pressed.connect(lambda: self.set_key_state('forward', True))
+        self.forward_btn.pressed.connect(lambda: (self.cancel_nav_goal_silent(), self.set_key_state('forward', True)))
         self.forward_btn.released.connect(lambda: self.set_key_state('forward', False))
         forward_layout.addWidget(self.forward_btn)
         forward_layout.addStretch()
@@ -489,7 +489,7 @@ class CmdVelGUI(QMainWindow):
                 background-color: #C0392B;
             }
         """)
-        self.left_btn.pressed.connect(lambda: self.set_key_state('left', True))
+        self.left_btn.pressed.connect(lambda: (self.cancel_nav_goal_silent(), self.set_key_state('left', True)))
         self.left_btn.released.connect(lambda: self.set_key_state('left', False))
         middle_layout.addWidget(self.left_btn)
 
@@ -506,7 +506,7 @@ class CmdVelGUI(QMainWindow):
                 background-color: #C0392B;
             }
         """)
-        self.right_btn.pressed.connect(lambda: self.set_key_state('right', True))
+        self.right_btn.pressed.connect(lambda: (self.cancel_nav_goal_silent(), self.set_key_state('right', True)))
         self.right_btn.released.connect(lambda: self.set_key_state('right', False))
         middle_layout.addWidget(self.right_btn)
         arrow_layout.addLayout(middle_layout)
@@ -525,7 +525,7 @@ class CmdVelGUI(QMainWindow):
                 background-color: #2980B9;
             }
         """)
-        self.backward_btn.pressed.connect(lambda: self.set_key_state('backward', True))
+        self.backward_btn.pressed.connect(lambda: (self.cancel_nav_goal_silent(), self.set_key_state('backward', True)))
         self.backward_btn.released.connect(lambda: self.set_key_state('backward', False))
         backward_layout.addWidget(self.backward_btn)
         backward_layout.addStretch()
@@ -857,6 +857,11 @@ class CmdVelGUI(QMainWindow):
         else:
             QMessageBox.warning(self, "Error", "ROS node not initialized")
 
+    def cancel_nav_goal_silent(self):
+        """Cancel navigation goal silently (no popup) - used for manual control"""
+        if self.node:
+            self.node.cancel_nav_goal()
+
     def update_goal_status(self, status, message):
         """Update the goal status display (copied from husky_gui)"""
         status_colors = {
@@ -964,12 +969,16 @@ class CmdVelGUI(QMainWindow):
     def keyPressEvent(self, event):
         """Handle keyboard input for WASD control"""
         if event.key() == Qt.Key_W:
+            self.cancel_nav_goal_silent()
             self.set_key_state('forward', True)
         elif event.key() == Qt.Key_S:
+            self.cancel_nav_goal_silent()
             self.set_key_state('backward', True)
         elif event.key() == Qt.Key_A:
+            self.cancel_nav_goal_silent()
             self.set_key_state('left', True)
         elif event.key() == Qt.Key_D:
+            self.cancel_nav_goal_silent()
             self.set_key_state('right', True)
         elif event.key() == Qt.Key_Space:
             self.emergency_stop_husky()
