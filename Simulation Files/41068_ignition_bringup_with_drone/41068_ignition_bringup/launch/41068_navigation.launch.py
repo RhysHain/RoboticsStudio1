@@ -9,7 +9,7 @@ def generate_launch_description():
     ld = LaunchDescription()
 
     config_path = PathJoinSubstitution([FindPackageShare('41068_ignition_bringup'), 'config'])
-    map_yaml_file = PathJoinSubstitution([FindPackageShare('41068_ignition_bringup'), 'maps', 'new_world_map.yaml'])
+    map_yaml_file = PathJoinSubstitution([FindPackageShare('41068_ignition_bringup'), 'maps', 'generated_world.yaml'])
 
     # Additional command line arguments
     use_sim_time = LaunchConfiguration('use_sim_time')
