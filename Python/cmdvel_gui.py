@@ -6,6 +6,7 @@ from rclpy.node import Node
 from rclpy.action import ActionClient
 from geometry_msgs.msg import Twist, PoseStamped, Pose
 from std_msgs.msg import Bool
+from nav_msgs.msg import Odometry
 from nav2_msgs.action import NavigateToPose
 from action_msgs.msg import GoalStatus
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
@@ -22,6 +23,8 @@ class CmdVelSignals(QObject):
     goal_status_updated = pyqtSignal(str, str)  # (status, message)
     drone_goal_sent = pyqtSignal(str)  # status message
     codes_bool_sent = pyqtSignal(str)  # status message for bool topic
+    husky_odom_updated = pyqtSignal(float, float, float, float)  # (x, y, z, yaw)
+    drone_odom_updated = pyqtSignal(float, float, float, float)  # (x, y, z, yaw)
 
 class CmdVelNode(Node):
     def __init__(self, signals):
@@ -34,8 +37,22 @@ class CmdVelNode(Node):
             '/cmd_vel',
             self.velocity_callback,
             10)
-        
-        # Publisher to send cmd_vel commands
+
+        # Subscribers for odometry
+        # Using /odom which is published by topic_relay.py
+        self.husky_odom_sub = self.create_subscription(
+            Odometry,
+            '/odom',
+            self.husky_odom_callback,
+            10)
+
+        self.drone_odom_sub = self.create_subscription(
+            Odometry,
+            '/parrot/odometry',
+            self.drone_odom_callback,
+            10)
+
+        # Publisher to send cmd_vel commands (topic_relay will forward to /husky/cmd_vel)
         self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         
         # Publisher for drone goals
@@ -62,8 +79,24 @@ class CmdVelNode(Node):
         # Nav2 Action Client
         self.nav_action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.current_goal_handle = None
-        
+
+        # Goal tracking (copied from husky_gui)
+        self.current_goal_x = None
+        self.current_goal_y = None
+        self.current_x = 0.0
+        self.current_y = 0.0
+        self.goal_reached = False
+        self.goal_tolerance = 0.3
+
+        # Timer to check goal progress (copied from husky_gui)
+        self.goal_check_timer = self.create_timer(0.5, self.check_goal_progress)
+
+        # Odometry received flags for debug logging
+        self.husky_odom_received = False
+        self.drone_odom_received = False
+
         self.get_logger().info('CMD_VEL GUI node started - Husky + Drone control enabled')
+        self.get_logger().info('Subscribing to odometry topics: /odom and /parrot/odometry')
 
     def velocity_callback(self, msg):
         # Extract velocities and emit signal for GUI update
@@ -71,6 +104,46 @@ class CmdVelNode(Node):
         linear_y = msg.linear.y
         angular_z = msg.angular.z
         self.signals.velocity_updated.emit(linear_x, linear_y, angular_z)
+
+    def husky_odom_callback(self, msg):
+        # Log first message received
+        if not self.husky_odom_received:
+            self.get_logger().info('Husky odometry data received!')
+            self.husky_odom_received = True
+
+        # Extract position and orientation from Husky odometry
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        z = msg.pose.pose.position.z
+
+        # Update current position for goal tracking (copied from husky_gui)
+        self.current_x = x
+        self.current_y = y
+
+        # Convert quaternion to yaw
+        orientation = msg.pose.pose.orientation
+        yaw = math.atan2(2.0 * (orientation.w * orientation.z + orientation.x * orientation.y),
+                        1.0 - 2.0 * (orientation.y * orientation.y + orientation.z * orientation.z))
+
+        self.signals.husky_odom_updated.emit(x, y, z, yaw)
+
+    def drone_odom_callback(self, msg):
+        # Log first message received
+        if not self.drone_odom_received:
+            self.get_logger().info('Drone odometry data received!')
+            self.drone_odom_received = True
+
+        # Extract position and orientation from Drone odometry
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        z = msg.pose.pose.position.z
+
+        # Convert quaternion to yaw
+        orientation = msg.pose.pose.orientation
+        yaw = math.atan2(2.0 * (orientation.w * orientation.z + orientation.x * orientation.y),
+                        1.0 - 2.0 * (orientation.y * orientation.y + orientation.z * orientation.z))
+
+        self.signals.drone_odom_updated.emit(x, y, z, yaw)
 
     def publish_velocity(self, linear_x, linear_y, angular_z):
         """Publish velocity command"""
@@ -123,7 +196,12 @@ class CmdVelNode(Node):
             self.signals.goal_status_updated.emit('error', 'Nav2 action server not available')
             self.get_logger().error('Navigate to pose action server not available')
             return False
-        
+
+        # Update goal tracking (copied from husky_gui)
+        self.current_goal_x = x
+        self.current_goal_y = y
+        self.goal_reached = False
+
         # Create goal message
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose = PoseStamped()
@@ -132,24 +210,48 @@ class CmdVelNode(Node):
         goal_msg.pose.pose.position.x = x
         goal_msg.pose.pose.position.y = y
         goal_msg.pose.pose.position.z = 0.0
-        
+
         # Convert yaw to quaternion (simplified for z-axis rotation)
         goal_msg.pose.pose.orientation.x = 0.0
         goal_msg.pose.pose.orientation.y = 0.0
         goal_msg.pose.pose.orientation.z = math.sin(yaw / 2.0)
         goal_msg.pose.pose.orientation.w = math.cos(yaw / 2.0)
-        
+
         self.get_logger().info(f'Sending goal: x={x:.2f}, y={y:.2f}, yaw={yaw:.2f}')
         self.signals.goal_status_updated.emit('sending', f'Sending goal to ({x:.2f}, {y:.2f})')
-        
+
         # Send goal
         send_goal_future = self.nav_action_client.send_goal_async(
             goal_msg,
             feedback_callback=self.nav_feedback_callback
         )
         send_goal_future.add_done_callback(self.nav_goal_response_callback)
-        
+
         return True
+
+    def check_goal_progress(self):
+        """Periodically check if we've reached the goal (copied from husky_gui)"""
+        if self.current_goal_x is None or self.current_goal_y is None:
+            return
+
+        if self.goal_reached:
+            return
+
+        # Calculate distance to goal
+        dx = self.current_goal_x - self.current_x
+        dy = self.current_goal_y - self.current_y
+        distance = math.sqrt(dx**2 + dy**2)
+
+        if distance < self.goal_tolerance:
+            # Goal reached!
+            self.goal_reached = True
+            self.signals.goal_status_updated.emit('succeeded',
+                f'Goal reached! Final distance: {distance:.3f}m')
+            self.get_logger().info(f'Goal reached! Distance from target: {distance:.3f}m')
+        else:
+            # Still navigating - update distance
+            self.signals.goal_status_updated.emit('navigating',
+                f'Navigating to ({self.current_goal_x:.2f}, {self.current_goal_y:.2f}) - Distance: {distance:.2f}m')
 
     def nav_goal_response_callback(self, future):
         """Handle goal acceptance/rejection"""
@@ -197,6 +299,13 @@ class CmdVelNode(Node):
             self.get_logger().info('Canceling current navigation goal')
             cancel_future = self.current_goal_handle.cancel_goal_async()
             cancel_future.add_done_callback(self.cancel_done_callback)
+
+            # Reset goal tracking (copied from husky_gui approach)
+            self.current_goal_x = None
+            self.current_goal_y = None
+            self.goal_reached = False
+            self.signals.goal_status_updated.emit('canceled', 'Goal cancelled')
+
             return True
         return False
 
@@ -222,6 +331,8 @@ class CmdVelGUI(QMainWindow):
         self.signals.goal_status_updated.connect(self.update_goal_status)
         self.signals.drone_goal_sent.connect(self.update_drone_status)
         self.signals.codes_bool_sent.connect(self.update_codes_bool_status)
+        self.signals.husky_odom_updated.connect(self.update_husky_odom)
+        self.signals.drone_odom_updated.connect(self.update_drone_odom)
         
         # Initialize ROS2 in separate thread
         self.ros_thread = None
@@ -234,6 +345,7 @@ class CmdVelGUI(QMainWindow):
         self.current_linear_x = 0.0
         self.current_linear_y = 0.0
         self.current_angular_z = 0.0
+
         
         # Real-time control - always enabled
         self.control_timer = QTimer()
@@ -249,15 +361,254 @@ class CmdVelGUI(QMainWindow):
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
-        
+        main_layout = QVBoxLayout(central_widget)
+
         # Title
         title = QLabel('Husky + Drone Control Center')
         title.setFont(QFont('Arial', 18, QFont.Bold))
         title.setStyleSheet("QLabel { color: #2E86C1; margin: 15px; }")
         title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
-        
+        main_layout.addWidget(title)
+
+        # Create two-column layout
+        columns_layout = QHBoxLayout()
+
+        # ========== LEFT COLUMN: HUSKY ==========
+        left_column = QVBoxLayout()
+
+        # ========== HUSKY NAV2 GOAL SECTION ==========
+        nav_group = QGroupBox("🎯 Husky Nav2 Goal Control")
+        nav_layout = QVBoxLayout(nav_group)
+
+        # Goal input fields
+        goal_input_layout = QGridLayout()
+
+        goal_input_layout.addWidget(QLabel('X (m):'), 0, 0)
+        self.goal_x_input = QLineEdit('0.0')
+        self.goal_x_input.setMaximumWidth(100)
+        goal_input_layout.addWidget(self.goal_x_input, 0, 1)
+
+        goal_input_layout.addWidget(QLabel('Y (m):'), 0, 2)
+        self.goal_y_input = QLineEdit('0.0')
+        self.goal_y_input.setMaximumWidth(100)
+        goal_input_layout.addWidget(self.goal_y_input, 0, 3)
+
+        goal_input_layout.addWidget(QLabel('Yaw (rad):'), 1, 0)
+        self.goal_yaw_input = QLineEdit('0.0')
+        self.goal_yaw_input.setMaximumWidth(100)
+        goal_input_layout.addWidget(self.goal_yaw_input, 1, 1)
+
+        nav_layout.addLayout(goal_input_layout)
+
+        # Goal action buttons
+        goal_btn_layout = QHBoxLayout()
+
+        self.send_goal_btn = QPushButton("Send Goal")
+        self.send_goal_btn.setFont(QFont('Arial', 11, QFont.Bold))
+        self.send_goal_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27AE60; color: white;
+                border-radius: 5px; padding: 10px;
+            }
+            QPushButton:pressed {
+                background-color: #229954;
+            }
+        """)
+        self.send_goal_btn.clicked.connect(self.send_nav_goal)
+        goal_btn_layout.addWidget(self.send_goal_btn)
+
+        self.cancel_goal_btn = QPushButton("Cancel Goal")
+        self.cancel_goal_btn.setFont(QFont('Arial', 11, QFont.Bold))
+        self.cancel_goal_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E67E22; color: white;
+                border-radius: 5px; padding: 10px;
+            }
+            QPushButton:pressed {
+                background-color: #D35400;
+            }
+        """)
+        self.cancel_goal_btn.clicked.connect(self.cancel_nav_goal)
+        goal_btn_layout.addWidget(self.cancel_goal_btn)
+
+        nav_layout.addLayout(goal_btn_layout)
+
+        # Goal status display (includes distance now like husky_gui)
+        self.goal_status_label = QLabel('Status: Ready')
+        self.goal_status_label.setFont(QFont('Arial', 10))
+        self.goal_status_label.setStyleSheet("""
+            QLabel {
+                background-color: #F8F9F9;
+                padding: 8px;
+                border-radius: 5px;
+                color: #566573;
+            }
+        """)
+        self.goal_status_label.setWordWrap(True)
+        nav_layout.addWidget(self.goal_status_label)
+
+        left_column.addWidget(nav_group)
+
+        # ========== KEYBOARD CONTROL SECTION ==========
+        keyboard_group = QGroupBox("⌨️ Manual Control (WASD or Click)")
+        keyboard_layout = QVBoxLayout(keyboard_group)
+
+        # Arrow key buttons
+        arrow_layout = QVBoxLayout()
+
+        # Forward button
+        forward_layout = QHBoxLayout()
+        forward_layout.addStretch()
+        self.forward_btn = QPushButton("↑")
+        self.forward_btn.setFont(QFont('Arial', 36, QFont.Bold))
+        self.forward_btn.setFixedSize(120, 80)
+        self.forward_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498DB; color: white; border-radius: 10px;
+            }
+            QPushButton:pressed {
+                background-color: #2980B9;
+            }
+        """)
+        self.forward_btn.pressed.connect(lambda: (self.cancel_nav_goal_silent(), self.set_key_state('forward', True)))
+        self.forward_btn.released.connect(lambda: self.set_key_state('forward', False))
+        forward_layout.addWidget(self.forward_btn)
+        forward_layout.addStretch()
+        arrow_layout.addLayout(forward_layout)
+
+        # Left/Right buttons
+        middle_layout = QHBoxLayout()
+        self.left_btn = QPushButton("←")
+        self.left_btn.setFont(QFont('Arial', 36, QFont.Bold))
+        self.left_btn.setFixedSize(120, 80)
+        self.left_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E74C3C; color: white; border-radius: 10px;
+            }
+            QPushButton:pressed {
+                background-color: #C0392B;
+            }
+        """)
+        self.left_btn.pressed.connect(lambda: (self.cancel_nav_goal_silent(), self.set_key_state('left', True)))
+        self.left_btn.released.connect(lambda: self.set_key_state('left', False))
+        middle_layout.addWidget(self.left_btn)
+
+        middle_layout.addStretch()
+
+        self.right_btn = QPushButton("→")
+        self.right_btn.setFont(QFont('Arial', 36, QFont.Bold))
+        self.right_btn.setFixedSize(120, 80)
+        self.right_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E74C3C; color: white; border-radius: 10px;
+            }
+            QPushButton:pressed {
+                background-color: #C0392B;
+            }
+        """)
+        self.right_btn.pressed.connect(lambda: (self.cancel_nav_goal_silent(), self.set_key_state('right', True)))
+        self.right_btn.released.connect(lambda: self.set_key_state('right', False))
+        middle_layout.addWidget(self.right_btn)
+        arrow_layout.addLayout(middle_layout)
+
+        # Backward button
+        backward_layout = QHBoxLayout()
+        backward_layout.addStretch()
+        self.backward_btn = QPushButton("↓")
+        self.backward_btn.setFont(QFont('Arial', 36, QFont.Bold))
+        self.backward_btn.setFixedSize(120, 80)
+        self.backward_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498DB; color: white; border-radius: 10px;
+            }
+            QPushButton:pressed {
+                background-color: #2980B9;
+            }
+        """)
+        self.backward_btn.pressed.connect(lambda: (self.cancel_nav_goal_silent(), self.set_key_state('backward', True)))
+        self.backward_btn.released.connect(lambda: self.set_key_state('backward', False))
+        backward_layout.addWidget(self.backward_btn)
+        backward_layout.addStretch()
+        arrow_layout.addLayout(backward_layout)
+
+        keyboard_layout.addLayout(arrow_layout)
+
+        # Speed controls
+        speed_layout = QVBoxLayout()
+        speed_layout.addWidget(QLabel('Speed Settings:'))
+
+        # Linear speed
+        lin_speed_layout = QHBoxLayout()
+        lin_speed_layout.addWidget(QLabel('Linear Speed:'))
+        self.linear_speed_slider = QSlider(Qt.Horizontal)
+        self.linear_speed_slider.setRange(10, 100)
+        self.linear_speed_slider.setValue(50)
+        self.linear_speed_slider.valueChanged.connect(self.update_speed_labels)
+        lin_speed_layout.addWidget(self.linear_speed_slider)
+        self.linear_speed_label = QLabel('0.50 m/s')
+        self.linear_speed_label.setMinimumWidth(80)
+        lin_speed_layout.addWidget(self.linear_speed_label)
+        speed_layout.addLayout(lin_speed_layout)
+
+        # Angular speed
+        ang_speed_layout = QHBoxLayout()
+        ang_speed_layout.addWidget(QLabel('Angular Speed:'))
+        self.angular_speed_slider = QSlider(Qt.Horizontal)
+        self.angular_speed_slider.setRange(10, 100)
+        self.angular_speed_slider.setValue(50)
+        self.angular_speed_slider.valueChanged.connect(self.update_speed_labels)
+        ang_speed_layout.addWidget(self.angular_speed_slider)
+        self.angular_speed_label = QLabel('1.00 rad/s')
+        self.angular_speed_label.setMinimumWidth(80)
+        ang_speed_layout.addWidget(self.angular_speed_label)
+        speed_layout.addLayout(ang_speed_layout)
+
+        keyboard_layout.addLayout(speed_layout)
+        left_column.addWidget(keyboard_group)
+
+        # ========== HUSKY ODOMETRY DISPLAY ==========
+        husky_odom_group = QGroupBox("📍 Husky Odometry")
+        husky_odom_layout = QGridLayout(husky_odom_group)
+
+        husky_odom_layout.addWidget(QLabel('X:'), 0, 0)
+        self.husky_odom_x_label = QLabel('0.000 m')
+        self.husky_odom_x_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.husky_odom_x_label.setStyleSheet("QLabel { color: #27AE60; background-color: #E8F8F5; padding: 5px; border-radius: 3px; }")
+        husky_odom_layout.addWidget(self.husky_odom_x_label, 0, 1)
+
+        husky_odom_layout.addWidget(QLabel('Y:'), 1, 0)
+        self.husky_odom_y_label = QLabel('0.000 m')
+        self.husky_odom_y_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.husky_odom_y_label.setStyleSheet("QLabel { color: #27AE60; background-color: #E8F8F5; padding: 5px; border-radius: 3px; }")
+        husky_odom_layout.addWidget(self.husky_odom_y_label, 1, 1)
+
+        husky_odom_layout.addWidget(QLabel('Yaw:'), 2, 0)
+        self.husky_odom_yaw_label = QLabel('0.000 rad')
+        self.husky_odom_yaw_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.husky_odom_yaw_label.setStyleSheet("QLabel { color: #27AE60; background-color: #E8F8F5; padding: 5px; border-radius: 3px; }")
+        husky_odom_layout.addWidget(self.husky_odom_yaw_label, 2, 1)
+
+        left_column.addWidget(husky_odom_group)
+
+        # ========== HUSKY EMERGENCY STOP ==========
+        husky_stop_btn = QPushButton("🛑 HUSKY EMERGENCY STOP")
+        husky_stop_btn.setFont(QFont('Arial', 12, QFont.Bold))
+        husky_stop_btn.setFixedHeight(60)
+        husky_stop_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FF0000; color: white; border-radius: 10px;
+                border: 3px solid #CC0000;
+            }
+            QPushButton:pressed {
+                background-color: #CC0000;
+            }
+        """)
+        husky_stop_btn.clicked.connect(self.emergency_stop_husky)
+        left_column.addWidget(husky_stop_btn)
+
+        # ========== RIGHT COLUMN: DRONE ==========
+        right_column = QVBoxLayout()
+
         # ========== DRONE GOAL SECTION ==========
         drone_group = QGroupBox("🚁 Drone 3D Goal Control (Parrot)")
         drone_layout = QVBoxLayout(drone_group)
@@ -336,250 +687,79 @@ class CmdVelGUI(QMainWindow):
         self.drone_status_label = QLabel('Drone Status: Ready')
         self.drone_status_label.setFont(QFont('Arial', 10))
         self.drone_status_label.setStyleSheet("""
-            QLabel { 
-                background-color: #F4ECF7; 
-                padding: 8px; 
+            QLabel {
+                background-color: #F4ECF7;
+                padding: 8px;
                 border-radius: 5px;
                 color: #6C3483;
             }
         """)
         drone_layout.addWidget(self.drone_status_label)
-        
-        layout.addWidget(drone_group)
-        
-        # ========== HUSKY NAV2 GOAL SECTION ==========
-        nav_group = QGroupBox("🎯 Husky Nav2 Goal Control")
-        nav_layout = QVBoxLayout(nav_group)
-        
-        # Goal input fields
-        goal_input_layout = QGridLayout()
-        
-        goal_input_layout.addWidget(QLabel('X (m):'), 0, 0)
-        self.goal_x_input = QLineEdit('0.0')
-        self.goal_x_input.setMaximumWidth(100)
-        goal_input_layout.addWidget(self.goal_x_input, 0, 1)
-        
-        goal_input_layout.addWidget(QLabel('Y (m):'), 0, 2)
-        self.goal_y_input = QLineEdit('0.0')
-        self.goal_y_input.setMaximumWidth(100)
-        goal_input_layout.addWidget(self.goal_y_input, 0, 3)
-        
-        goal_input_layout.addWidget(QLabel('Yaw (rad):'), 1, 0)
-        self.goal_yaw_input = QLineEdit('0.0')
-        self.goal_yaw_input.setMaximumWidth(100)
-        goal_input_layout.addWidget(self.goal_yaw_input, 1, 1)
-        
-        nav_layout.addLayout(goal_input_layout)
-        
-        # Goal action buttons
-        goal_btn_layout = QHBoxLayout()
-        
-        self.send_goal_btn = QPushButton("Send Goal")
-        self.send_goal_btn.setFont(QFont('Arial', 11, QFont.Bold))
-        self.send_goal_btn.setStyleSheet("""
-            QPushButton { 
-                background-color: #27AE60; color: white; 
-                border-radius: 5px; padding: 10px;
-            }
-            QPushButton:pressed { 
-                background-color: #229954; 
-            }
-        """)
-        self.send_goal_btn.clicked.connect(self.send_nav_goal)
-        goal_btn_layout.addWidget(self.send_goal_btn)
-        
-        self.cancel_goal_btn = QPushButton("Cancel Goal")
-        self.cancel_goal_btn.setFont(QFont('Arial', 11, QFont.Bold))
-        self.cancel_goal_btn.setStyleSheet("""
-            QPushButton { 
-                background-color: #E67E22; color: white; 
-                border-radius: 5px; padding: 10px;
-            }
-            QPushButton:pressed { 
-                background-color: #D35400; 
-            }
-        """)
-        self.cancel_goal_btn.clicked.connect(self.cancel_nav_goal)
-        goal_btn_layout.addWidget(self.cancel_goal_btn)
-        
-        nav_layout.addLayout(goal_btn_layout)
-        
-        # Goal status display
-        self.goal_status_label = QLabel('Status: Ready')
-        self.goal_status_label.setFont(QFont('Arial', 10))
-        self.goal_status_label.setStyleSheet("""
-            QLabel { 
-                background-color: #F8F9F9; 
-                padding: 8px; 
-                border-radius: 5px;
-                color: #566573;
-            }
-        """)
-        self.goal_status_label.setWordWrap(True)
-        nav_layout.addWidget(self.goal_status_label)
-        
-        layout.addWidget(nav_group)
-        
-        # ========== KEYBOARD CONTROL SECTION ==========
-        keyboard_group = QGroupBox("⌨️ Manual Control (WASD or Click)")
-        keyboard_layout = QVBoxLayout(keyboard_group)
-        
-        # Arrow key buttons
-        arrow_layout = QVBoxLayout()
-        
-        # Forward button
-        forward_layout = QHBoxLayout()
-        forward_layout.addStretch()
-        self.forward_btn = QPushButton("↑")
-        self.forward_btn.setFont(QFont('Arial', 36, QFont.Bold))
-        self.forward_btn.setFixedSize(120, 80)
-        self.forward_btn.setStyleSheet("""
-            QPushButton { 
-                background-color: #3498DB; color: white; border-radius: 10px; 
-            }
-            QPushButton:pressed { 
-                background-color: #2980B9; 
-            }
-        """)
-        self.forward_btn.pressed.connect(lambda: self.set_key_state('forward', True))
-        self.forward_btn.released.connect(lambda: self.set_key_state('forward', False))
-        forward_layout.addWidget(self.forward_btn)
-        forward_layout.addStretch()
-        arrow_layout.addLayout(forward_layout)
-        
-        # Left/Right buttons
-        middle_layout = QHBoxLayout()
-        self.left_btn = QPushButton("←")
-        self.left_btn.setFont(QFont('Arial', 36, QFont.Bold))
-        self.left_btn.setFixedSize(120, 80)
-        self.left_btn.setStyleSheet("""
-            QPushButton { 
-                background-color: #E74C3C; color: white; border-radius: 10px; 
-            }
-            QPushButton:pressed { 
-                background-color: #C0392B; 
-            }
-        """)
-        self.left_btn.pressed.connect(lambda: self.set_key_state('left', True))
-        self.left_btn.released.connect(lambda: self.set_key_state('left', False))
-        middle_layout.addWidget(self.left_btn)
-        
-        middle_layout.addStretch()
-        
-        self.right_btn = QPushButton("→")
-        self.right_btn.setFont(QFont('Arial', 36, QFont.Bold))
-        self.right_btn.setFixedSize(120, 80)
-        self.right_btn.setStyleSheet("""
-            QPushButton { 
-                background-color: #E74C3C; color: white; border-radius: 10px; 
-            }
-            QPushButton:pressed { 
-                background-color: #C0392B; 
-            }
-        """)
-        self.right_btn.pressed.connect(lambda: self.set_key_state('right', True))
-        self.right_btn.released.connect(lambda: self.set_key_state('right', False))
-        middle_layout.addWidget(self.right_btn)
-        arrow_layout.addLayout(middle_layout)
-        
-        # Backward button
-        backward_layout = QHBoxLayout()
-        backward_layout.addStretch()
-        self.backward_btn = QPushButton("↓")
-        self.backward_btn.setFont(QFont('Arial', 36, QFont.Bold))
-        self.backward_btn.setFixedSize(120, 80)
-        self.backward_btn.setStyleSheet("""
-            QPushButton { 
-                background-color: #3498DB; color: white; border-radius: 10px; 
-            }
-            QPushButton:pressed { 
-                background-color: #2980B9; 
-            }
-        """)
-        self.backward_btn.pressed.connect(lambda: self.set_key_state('backward', True))
-        self.backward_btn.released.connect(lambda: self.set_key_state('backward', False))
-        backward_layout.addWidget(self.backward_btn)
-        backward_layout.addStretch()
-        arrow_layout.addLayout(backward_layout)
-        
-        keyboard_layout.addLayout(arrow_layout)
-        
-        # Speed controls
-        speed_layout = QVBoxLayout()
-        speed_layout.addWidget(QLabel('Speed Settings:'))
-        
-        # Linear speed
-        lin_speed_layout = QHBoxLayout()
-        lin_speed_layout.addWidget(QLabel('Linear Speed:'))
-        self.linear_speed_slider = QSlider(Qt.Horizontal)
-        self.linear_speed_slider.setRange(10, 100)
-        self.linear_speed_slider.setValue(50)
-        self.linear_speed_slider.valueChanged.connect(self.update_speed_labels)
-        lin_speed_layout.addWidget(self.linear_speed_slider)
-        self.linear_speed_label = QLabel('0.50 m/s')
-        self.linear_speed_label.setMinimumWidth(80)
-        lin_speed_layout.addWidget(self.linear_speed_label)
-        speed_layout.addLayout(lin_speed_layout)
-        
-        # Angular speed
-        ang_speed_layout = QHBoxLayout()
-        ang_speed_layout.addWidget(QLabel('Angular Speed:'))
-        self.angular_speed_slider = QSlider(Qt.Horizontal)
-        self.angular_speed_slider.setRange(10, 100)
-        self.angular_speed_slider.setValue(50)
-        self.angular_speed_slider.valueChanged.connect(self.update_speed_labels)
-        ang_speed_layout.addWidget(self.angular_speed_slider)
-        self.angular_speed_label = QLabel('1.00 rad/s')
-        self.angular_speed_label.setMinimumWidth(80)
-        ang_speed_layout.addWidget(self.angular_speed_label)
-        speed_layout.addLayout(ang_speed_layout)
-        
-        keyboard_layout.addLayout(speed_layout)
-        layout.addWidget(keyboard_group)
-        
-        # Emergency stop
-        stop_layout = QHBoxLayout()
-        stop_layout.addStretch()
-        self.emergency_stop_btn = QPushButton("EMERGENCY STOP")
-        self.emergency_stop_btn.setFont(QFont('Arial', 14, QFont.Bold))
-        self.emergency_stop_btn.setFixedSize(220, 80)
-        self.emergency_stop_btn.setStyleSheet("""
-            QPushButton { 
+
+        right_column.addWidget(drone_group)
+
+        # ========== DRONE ODOMETRY DISPLAY ==========
+        drone_odom_group = QGroupBox("📍 Drone Odometry")
+        drone_odom_layout = QGridLayout(drone_odom_group)
+
+        drone_odom_layout.addWidget(QLabel('X:'), 0, 0)
+        self.drone_odom_x_label = QLabel('0.000 m')
+        self.drone_odom_x_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.drone_odom_x_label.setStyleSheet("QLabel { color: #8E44AD; background-color: #F4ECF7; padding: 5px; border-radius: 3px; }")
+        drone_odom_layout.addWidget(self.drone_odom_x_label, 0, 1)
+
+        drone_odom_layout.addWidget(QLabel('Y:'), 1, 0)
+        self.drone_odom_y_label = QLabel('0.000 m')
+        self.drone_odom_y_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.drone_odom_y_label.setStyleSheet("QLabel { color: #8E44AD; background-color: #F4ECF7; padding: 5px; border-radius: 3px; }")
+        drone_odom_layout.addWidget(self.drone_odom_y_label, 1, 1)
+
+        drone_odom_layout.addWidget(QLabel('Z:'), 2, 0)
+        self.drone_odom_z_label = QLabel('0.000 m')
+        self.drone_odom_z_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.drone_odom_z_label.setStyleSheet("QLabel { color: #8E44AD; background-color: #F4ECF7; padding: 5px; border-radius: 3px; }")
+        drone_odom_layout.addWidget(self.drone_odom_z_label, 2, 1)
+
+        drone_odom_layout.addWidget(QLabel('Yaw:'), 3, 0)
+        self.drone_odom_yaw_label = QLabel('0.000 rad')
+        self.drone_odom_yaw_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.drone_odom_yaw_label.setStyleSheet("QLabel { color: #8E44AD; background-color: #F4ECF7; padding: 5px; border-radius: 3px; }")
+        drone_odom_layout.addWidget(self.drone_odom_yaw_label, 3, 1)
+
+        right_column.addWidget(drone_odom_group)
+
+        # ========== DRONE EMERGENCY STOP ==========
+        drone_stop_btn = QPushButton("🛑 DRONE EMERGENCY STOP")
+        drone_stop_btn.setFont(QFont('Arial', 12, QFont.Bold))
+        drone_stop_btn.setFixedHeight(60)
+        drone_stop_btn.setStyleSheet("""
+            QPushButton {
                 background-color: #FF0000; color: white; border-radius: 10px;
-                border: 3px solid #CC0000; text-align: center;
+                border: 3px solid #CC0000;
             }
-            QPushButton:pressed { 
-                background-color: #CC0000; 
+            QPushButton:pressed {
+                background-color: #CC0000;
             }
         """)
-        self.emergency_stop_btn.clicked.connect(self.emergency_stop)
-        stop_layout.addWidget(self.emergency_stop_btn)
-        stop_layout.addStretch()
-        layout.addLayout(stop_layout)
-        
-        # Monitoring section
-        monitor_group = QGroupBox("📊 Current Velocities")
-        monitor_layout = QHBoxLayout(monitor_group)
-        
-        self.linear_x_label = QLabel('Linear: 0.000 m/s')
-        self.linear_x_label.setFont(QFont('Arial', 11, QFont.Bold))
-        self.linear_x_label.setStyleSheet("QLabel { color: #2E86C1; background-color: #EBF5FB; padding: 8px; border-radius: 5px; }")
-        monitor_layout.addWidget(self.linear_x_label)
-        
-        self.angular_z_label = QLabel('Angular: 0.000 rad/s')
-        self.angular_z_label.setFont(QFont('Arial', 11, QFont.Bold))
-        self.angular_z_label.setStyleSheet("QLabel { color: #D35400; background-color: #FDF2E9; padding: 8px; border-radius: 5px; }")
-        monitor_layout.addWidget(self.angular_z_label)
-        
-        self.status_label = QLabel('Status: Stopped')
-        self.status_label.setFont(QFont('Arial', 11))
-        self.status_label.setStyleSheet("QLabel { color: #E74C3C; font-style: italic; padding: 8px; }")
-        monitor_layout.addWidget(self.status_label)
-        
-        layout.addWidget(monitor_group)
+        drone_stop_btn.clicked.connect(self.emergency_stop_drone)
+        right_column.addWidget(drone_stop_btn)
+
+        # Add spacer to push drone content to top
+        right_column.addStretch()
+
+        # Add columns to the columns layout
+        columns_layout.addLayout(left_column)
+        columns_layout.addLayout(right_column)
+
+        # Add columns layout to main layout
+        main_layout.addLayout(columns_layout)
         
         # Update speed labels initially
         self.update_speed_labels()
+
+        # Set focus to main window so WASD keys work immediately
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocus()
 
     def init_ros(self):
         """Initialize ROS2 in a separate thread"""
@@ -660,12 +840,12 @@ class CmdVelGUI(QMainWindow):
             x = float(self.goal_x_input.text())
             y = float(self.goal_y_input.text())
             yaw = float(self.goal_yaw_input.text())
-            
+
             if self.node:
                 self.node.send_nav_goal(x, y, yaw)
             else:
                 QMessageBox.warning(self, "Error", "ROS node not initialized")
-                
+
         except ValueError:
             QMessageBox.warning(self, "Invalid Input", "Please enter valid numbers for X, Y, and Yaw")
 
@@ -677,12 +857,18 @@ class CmdVelGUI(QMainWindow):
         else:
             QMessageBox.warning(self, "Error", "ROS node not initialized")
 
+    def cancel_nav_goal_silent(self):
+        """Cancel navigation goal silently (no popup) - used for manual control"""
+        if self.node:
+            self.node.cancel_nav_goal()
+
     def update_goal_status(self, status, message):
-        """Update the goal status display"""
+        """Update the goal status display (copied from husky_gui)"""
         status_colors = {
             'sending': '#3498DB',
             'accepted': '#F39C12',
             'succeeded': '#27AE60',
+            'navigating': '#F39C12',
             'aborted': '#E74C3C',
             'canceled': '#95A5A6',
             'error': '#C0392B',
@@ -690,13 +876,13 @@ class CmdVelGUI(QMainWindow):
             'rejected': '#E74C3C',
             'unknown': '#7F8C8D'
         }
-        
+
         color = status_colors.get(status, '#566573')
-        self.goal_status_label.setText(f'Nav2 Status: {message}')
+        self.goal_status_label.setText(message)
         self.goal_status_label.setStyleSheet(f"""
-            QLabel {{ 
-                background-color: #F8F9F9; 
-                padding: 8px; 
+            QLabel {{
+                background-color: #F8F9F9;
+                padding: 8px;
                 border-radius: 5px;
                 color: {color};
                 font-weight: bold;
@@ -748,52 +934,54 @@ class CmdVelGUI(QMainWindow):
         """Send commands continuously in real-time"""
         self.send_movement_command()
 
-    def emergency_stop(self):
-        """Emergency stop - immediately stop robot and reset all states"""
+    def emergency_stop_husky(self):
+        """Emergency stop for Husky - immediately stop robot and reset all states"""
         if self.node:
             self.node.publish_velocity(0.0, 0.0, 0.0)
             self.node.cancel_nav_goal()
-        
+
         self.key_forward = False
         self.key_backward = False
         self.key_left = False
         self.key_right = False
-        
-        print("EMERGENCY STOP activated")
+
+        print("HUSKY EMERGENCY STOP activated")
+
+    def emergency_stop_drone(self):
+        """Emergency stop for Drone - publish stop command"""
+        if self.node:
+            # Publish current position as goal to stop drone
+            stop_goal = Pose()
+            stop_goal.position.x = 0.0
+            stop_goal.position.y = 0.0
+            stop_goal.position.z = 0.0
+            stop_goal.orientation.w = 1.0
+            self.node.drone_goal_publisher.publish(stop_goal)
+
+        print("DRONE EMERGENCY STOP activated")
 
     def update_velocity_display(self, linear_x, linear_y, angular_z):
         """Update the GUI with new velocity values from topic"""
         self.current_linear_x = linear_x
         self.current_linear_y = linear_y
         self.current_angular_z = angular_z
-        
-        self.linear_x_label.setText(f'Linear: {linear_x:+.3f} m/s')
-        self.angular_z_label.setText(f'Angular: {angular_z:+.3f} rad/s')
-        
-        velocity_magnitude = (linear_x**2 + linear_y**2)**0.5
-        
-        if abs(linear_x) > 0.01 or abs(linear_y) > 0.01 or abs(angular_z) > 0.01:
-            if velocity_magnitude > 0.01:
-                self.status_label.setText(f'Status: Moving ({velocity_magnitude:.2f} m/s)')
-            else:
-                self.status_label.setText('Status: Rotating')
-            self.status_label.setStyleSheet("QLabel { color: #27AE60; font-style: italic; font-weight: bold; padding: 8px; }")
-        else:
-            self.status_label.setText('Status: Stopped')
-            self.status_label.setStyleSheet("QLabel { color: #E74C3C; font-style: italic; font-weight: bold; padding: 8px; }")
 
     def keyPressEvent(self, event):
         """Handle keyboard input for WASD control"""
         if event.key() == Qt.Key_W:
+            self.cancel_nav_goal_silent()
             self.set_key_state('forward', True)
         elif event.key() == Qt.Key_S:
+            self.cancel_nav_goal_silent()
             self.set_key_state('backward', True)
         elif event.key() == Qt.Key_A:
+            self.cancel_nav_goal_silent()
             self.set_key_state('left', True)
         elif event.key() == Qt.Key_D:
+            self.cancel_nav_goal_silent()
             self.set_key_state('right', True)
         elif event.key() == Qt.Key_Space:
-            self.emergency_stop()
+            self.emergency_stop_husky()
 
     def keyReleaseEvent(self, event):
         """Handle keyboard release for WASD control"""
@@ -806,10 +994,25 @@ class CmdVelGUI(QMainWindow):
         elif event.key() == Qt.Key_D:
             self.set_key_state('right', False)
 
+    def update_husky_odom(self, x, y, z, yaw):
+        """Update Husky odometry display (copied from husky_gui)"""
+        self.husky_odom_x_label.setText(f'{x:.3f} m')
+        self.husky_odom_y_label.setText(f'{y:.3f} m')
+        self.husky_odom_yaw_label.setText(f'{yaw:.3f} rad')
+
+    def update_drone_odom(self, x, y, z, yaw):
+        """Update Drone odometry display"""
+        self.drone_odom_x_label.setText(f'{x:.3f} m')
+        self.drone_odom_y_label.setText(f'{y:.3f} m')
+        self.drone_odom_z_label.setText(f'{z:.3f} m')
+        self.drone_odom_yaw_label.setText(f'{yaw:.3f} rad')
+
     def closeEvent(self, event):
         """Clean up when closing the application"""
         if self.node:
+            # Stop Husky
             self.node.publish_velocity(0.0, 0.0, 0.0)
+            self.node.cancel_nav_goal()
             self.node.destroy_node()
         if self.ros_thread and self.ros_thread.is_alive():
             rclpy.shutdown()
