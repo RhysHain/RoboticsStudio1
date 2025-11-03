@@ -1,0 +1,119 @@
+# File: nav2_params.yaml
+
+amcl:
+  ros__parameters:
+    use_sim_time: True
+    alpha1: 0.2
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    alpha5: 0.1
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    scan_topic: "/husky/scan"
+    min_particles: 500
+    max_particles: 2000
+    kld_err: 0.05
+    kld_z: 0.99
+    update_min_d: 0.2
+    update_min_a: 0.1
+
+map_server:
+  ros__parameters:
+    use_sim_time: True
+    yaml_filename: "/full/path/to/your/map.yaml"  # set your map
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: True
+
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    controller_frequency: 20.0
+    progress_checker_plugin: "progress_checker"
+    controller_plugins: ["FollowPath"]
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      acc_lim_x: 0.5
+      acc_lim_y: 0.0
+      acc_lim_theta: 1.0
+      max_vel_x: 1.5
+      min_vel_x: 0.0
+      max_vel_theta: 1.0
+      min_vel_theta: -1.0
+      sim_time: 4.0
+      vx_samples: 20
+      vtheta_samples: 40
+      controller_frequency: 20.0
+      path_distance_bias: 32.0
+      goal_distance_bias: 24.0
+      occdist_scale: 0.01
+      forward_point_distance: 0.325
+      stop_time_buffer: 0.2
+      scaling_speed: 0.25
+      max_scaling_factor: 0.2
+      xy_goal_tolerance: 0.6
+      yaw_goal_tolerance: 0.6
+      trans_stopped_velocity: 0.2
+      rot_stopped_velocity: 0.2
+      prune_plan: True
+
+planner_server:
+  ros__parameters:
+    use_sim_time: True
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+
+recoveries_server:
+  ros__parameters:
+    use_sim_time: True
+    recovery_plugins: ["Spin", "BackUp"]
+    Spin:
+      plugin: "nav2_recoveries/Spin"
+      sim_time: 1.0
+      angular_speed: 1.0
+    BackUp:
+      plugin: "nav2_recoveries/BackUp"
+      backup_distance: 0.5
+      backup_speed: 0.2
+
+costmap_common:
+  ros__parameters:
+    use_sim_time: True
+    robot_base_frame: "base_link"
+    global_frame: "odom"
+    update_frequency: 5.0
+    publish_frequency: 2.0
+    transform_tolerance: 0.5
+    footprint: [[0.5, 0.5], [0.5, -0.5], [-0.5, -0.5], [-0.5, 0.5]]  # square approx robot
+    inflation_layer:
+      inflation_radius: 0.7
+    obstacle_layer:
+      observation_sources: "laser_scan_sensor"
+      laser_scan_sensor: {sensor_frame: "base_scan", data_type: LaserScan, topic: "/husky/scan", marking: true, clearing: true, obstacle_range: 15.0, raytrace_range: 15.0, inf_is_valid: false}
+
+global_costmap:
+  ros__parameters:
+    global_costmap:
+      global_frame: "odom"
+      robot_base_frame: "base_link"
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      static_map: True
+      rolling_window: False
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+
+local_costmap:
+  ros__parameters:
+    local_costmap:
+      global_frame: "odom"
+      robot_base_frame: "base_link"
+      update_frequency: 10.0
+      publish_frequency: 2.0
+      rolling_window: True
+      width: 25.0
+      height: 25.0
+      resolution: 0.05
+      plugins: ["obstacle_layer", "inflation_layer"]

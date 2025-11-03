@@ -145,7 +145,7 @@ void DroneNode::odo_callback(const std::shared_ptr<nav_msgs::msg::Odometry> odo)
     odo_ = *odo;
 }
 void DroneNode::pose_callback(const std::shared_ptr<geometry_msgs::msg::PoseArray> poses) {
-    geometry_msgs::msg::Pose pose = poses->poses.at(0);
+    geometry_msgs::msg::Pose pose = poses->poses.at(1);
     odo_.pose.pose = pose;
     drone_.setOdometry(odo_);
 }

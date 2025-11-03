@@ -46,7 +46,7 @@ def main():
     ##
     # @brief Default Z-axis and rotation values for the generated models.
     ##
-    z_tree = 0
+    z_tree = -0.4
     roll = pitch = yaw = 0
     z_red_box = 0.5
 
