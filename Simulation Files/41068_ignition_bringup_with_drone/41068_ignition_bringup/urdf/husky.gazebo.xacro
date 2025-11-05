@@ -12,7 +12,7 @@
       <visualize>$(arg imu_visual)</visualize>
       <update_rate>100</update_rate>
       <topic>model/husky/imu</topic>
-      <gz_frame_id>imu_link</gz_frame_id>
+      <gz_frame_id>husky/imu_link</gz_frame_id>
       <imu>
         <angular_velocity>
           <x>
@@ -104,12 +104,12 @@
     </plugin>
   </gazebo>
   <!-- Lidar and cameras use the general Sensors plugin -->
-  <gazebo>
+  <!-- <gazebo>
     <plugin
         filename="libignition-gazebo-sensors-system.so"
         name="ignition::gazebo::systems::Sensors">
     </plugin>
-  </gazebo>
+  </gazebo> -->
 
   <gazebo reference="base_scan">
     <material>Gazebo/FlatBlack</material>
@@ -118,7 +118,7 @@
       <visualize>$(arg laser_visual)</visualize>
       <topic>model/husky/scan</topic>
       <update_rate>20</update_rate>
-      <gz_frame_id>base_scan</gz_frame_id>
+      <gz_frame_id>husky/base_scan</gz_frame_id>
       <ray>
         <scan>
           <horizontal>

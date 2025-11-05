@@ -90,7 +90,7 @@ def generate_launch_description():
         executable='create',
         output='screen',
         parameters=[{'use_sim_time': use_sim_time}],
-        arguments=['-topic', '/robot_description', '-z', '0.4']
+        arguments=['-topic', '/robot_description', '-x', '1', '-y', '1', '-z', '0.4']
     )
     ld.add_action(robot_spawner)
 
