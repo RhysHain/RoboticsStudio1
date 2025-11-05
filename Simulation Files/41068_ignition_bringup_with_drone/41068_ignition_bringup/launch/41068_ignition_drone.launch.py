@@ -132,7 +132,7 @@ def generate_launch_description():
         # ---- NEW: RGBD color -> global coordinate node ----
     camera_tree_node = Node(
         package='41068_ignition_bringup',
-        executable='camera_tree_to_map',   # no .py because you RENAME'd it in CMake
+        executable='camera_tree_to_map.py',   # no .py because you RENAME'd it in CMake
         name='camera_tree_to_map',
         output='screen',
         parameters=[{

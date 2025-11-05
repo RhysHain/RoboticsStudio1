@@ -81,6 +81,15 @@ def generate_launch_description():
         # Publish odometry TF
         Node(
             package='41068_ignition_bringup',
+            executable='camera_tree_to_map.py',
+            name='camera_tree_to_map',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time}]
+        ),
+
+        # Publish odometry TF
+        Node(
+            package='41068_ignition_bringup',
             executable='odom_to_tf.py',
             name='odom_to_tf',
             output='screen',

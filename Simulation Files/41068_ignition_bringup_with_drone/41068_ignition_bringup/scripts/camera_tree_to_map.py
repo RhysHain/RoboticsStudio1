@@ -14,20 +14,20 @@ class RGBCloudTargetToMap(Node):
         super().__init__('rgb_cloud_target_to_map')
 
         # --- Params ---
-        self.declare_parameter('rgb_topic',   '/camera/image')              # match your bridge
-        self.declare_parameter('cloud_topic', '/camera/depth/points')       # organized cloud
-        self.declare_parameter('target_frame','map')                         # or 'odom'
+        self.declare_parameter('rgb_topic',   '/parrot/camera/image')              # match your bridge
+        self.declare_parameter('cloud_topic', '/parrot/camera/depth/points')       # organized cloud
+        self.declare_parameter('target_frame','parrot/odom')                         # or 'odom'
         self.declare_parameter('roi_px', 7)                                  # radius for median over neighborhood
         self.declare_parameter('min_m', 0.1)
         self.declare_parameter('max_m', 60.0)
 
-        # HSV thresholds (tune!)
-        # Foliage/green example:
-        self.declare_parameter('hsv_low',  [35, 40, 40])
-        self.declare_parameter('hsv_high', [90,255,255])
-        # Optional second range; set to [-1,-1,-1] to disable
-        self.declare_parameter('hsv2_low',  [-1,-1,-1])
-        self.declare_parameter('hsv2_high', [-1,-1,-1])
+        # HSV thresholds for RED (two ranges; OpenCV H ∈ [0,179])
+        self.declare_parameter('hsv_low',   [0, 70, 50])     # low-red
+        self.declare_parameter('hsv_high',  [10, 255, 255])
+
+        # second RED range (enable by not using negatives)
+        self.declare_parameter('hsv2_low',  [170, 70, 50])   # high-red
+        self.declare_parameter('hsv2_high', [179, 255, 255])
 
         self.rgb_topic   = self.get_parameter('rgb_topic').get_parameter_value().string_value
         self.cloud_topic = self.get_parameter('cloud_topic').get_parameter_value().string_value
@@ -52,8 +52,8 @@ class RGBCloudTargetToMap(Node):
 
         # TF + pubs
         self.tf = Buffer(); self.tfl = TransformListener(self.tf, self)
-        self.pub_point  = self.create_publisher(PointStamped, 'tree/point_' + self.target_frame, 10)
-        self.pub_marker = self.create_publisher(Marker, 'tree/marker', 10)
+        self.pub_point  = self.create_publisher(PointStamped, 'object/point_' + self.target_frame, 10)
+        self.pub_marker = self.create_publisher(Marker, 'object/marker', 10)
 
         self.get_logger().info(f'RGB:{self.rgb_topic} CLOUD:{self.cloud_topic} → {self.target_frame}')
 
@@ -147,7 +147,7 @@ class RGBCloudTargetToMap(Node):
         self.pub_marker.publish(mk)
 
         rng = math.sqrt(X*X + Y*Y + Z*Z)
-        self.get_logger().info(f"Tree @ {self.target_frame}: x={pt_world.point.x:.3f}, y={pt_world.point.y:.3f}, z={pt_world.point.z:.3f} "
+        self.get_logger().info(f"Object at {self.target_frame}: x={pt_world.point.x:.3f}, y={pt_world.point.y:.3f}, z={pt_world.point.z:.3f} "
                                f"(range≈{rng:.3f} m, pixel={u},{v})")
 
 def main():
