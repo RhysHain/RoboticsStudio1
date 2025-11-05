@@ -4,18 +4,23 @@ import sys
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
-from geometry_msgs.msg import Twist, PoseStamped, Pose
+from geometry_msgs.msg import Twist, PoseStamped, Pose, PoseArray
 from std_msgs.msg import Bool
 from nav_msgs.msg import Odometry
 from nav2_msgs.action import NavigateToPose
 from action_msgs.msg import GoalStatus
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
+from visualization_msgs.msg import Marker
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
                              QWidget, QLabel, QPushButton, QSlider, QGroupBox,
                              QLineEdit, QGridLayout, QMessageBox)
 from PyQt5.QtCore import QTimer, pyqtSignal, QObject, Qt
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QImage, QPixmap
 import threading
 import math
+import cv2
+import numpy as np
 
 class CmdVelSignals(QObject):
     """Signals for thread-safe GUI updates"""
@@ -25,12 +30,17 @@ class CmdVelSignals(QObject):
     codes_bool_sent = pyqtSignal(str)  # status message for bool topic
     husky_odom_updated = pyqtSignal(float, float, float, float)  # (x, y, z, yaw)
     drone_odom_updated = pyqtSignal(float, float, float, float)  # (x, y, z, yaw)
+    marker_updated = pyqtSignal(float, float, float)  # (x, y, z) from /parrot/object/marker
+    camera_image_updated = pyqtSignal(object)  # QPixmap for camera feed
 
 class CmdVelNode(Node):
     def __init__(self, signals):
         super().__init__('cmdvel_gui_node')
         self.signals = signals
-        
+
+        # CV Bridge for image conversion
+        self.bridge = CvBridge()
+
         # Subscriber to monitor cmd_vel
         self.subscription = self.create_subscription(
             Twist,
@@ -46,10 +56,25 @@ class CmdVelNode(Node):
             self.husky_odom_callback,
             10)
 
+        # Changed to /parrot/pose (PoseArray) - use second element
         self.drone_odom_sub = self.create_subscription(
-            Odometry,
-            '/parrot/odometry',
+            PoseArray,
+            '/parrot/pose',
             self.drone_odom_callback,
+            10)
+
+        # Subscriber for /parrot/object/marker
+        self.marker_sub = self.create_subscription(
+            Marker,
+            '/parrot/object/marker',
+            self.marker_callback,
+            10)
+
+        # Subscriber for /parrot/camera/image
+        self.camera_sub = self.create_subscription(
+            Image,
+            '/parrot/camera/image',
+            self.camera_callback,
             10)
 
         # Publisher to send cmd_vel commands (topic_relay will forward to /husky/cmd_vel)
@@ -94,9 +119,12 @@ class CmdVelNode(Node):
         # Odometry received flags for debug logging
         self.husky_odom_received = False
         self.drone_odom_received = False
+        self.marker_received = False
+        self.camera_received = False
 
         self.get_logger().info('CMD_VEL GUI node started - Husky + Drone control enabled')
-        self.get_logger().info('Subscribing to odometry topics: /odom and /parrot/odometry')
+        self.get_logger().info('Subscribing to odometry topics: /odom and /parrot/pose')
+        self.get_logger().info('Subscribing to /parrot/object/marker and /parrot/camera/image')
 
     def velocity_callback(self, msg):
         # Extract velocities and emit signal for GUI update
@@ -130,20 +158,71 @@ class CmdVelNode(Node):
     def drone_odom_callback(self, msg):
         # Log first message received
         if not self.drone_odom_received:
-            self.get_logger().info('Drone odometry data received!')
+            self.get_logger().info('Drone pose data received from /parrot/pose!')
             self.drone_odom_received = True
 
-        # Extract position and orientation from Drone odometry
-        x = msg.pose.pose.position.x
-        y = msg.pose.pose.position.y
-        z = msg.pose.pose.position.z
+        # Check if the array has at least 2 elements (second element is index 1)
+        if len(msg.poses) < 2:
+            self.get_logger().warn(f'PoseArray has only {len(msg.poses)} elements, need at least 2')
+            return
+
+        # Extract position and orientation from second element of PoseArray
+        pose = msg.poses[1]  # Second element (index 1)
+        x = pose.position.x
+        y = pose.position.y
+        z = pose.position.z
 
         # Convert quaternion to yaw
-        orientation = msg.pose.pose.orientation
+        orientation = pose.orientation
         yaw = math.atan2(2.0 * (orientation.w * orientation.z + orientation.x * orientation.y),
                         1.0 - 2.0 * (orientation.y * orientation.y + orientation.z * orientation.z))
 
         self.signals.drone_odom_updated.emit(x, y, z, yaw)
+
+    def marker_callback(self, msg):
+        """Callback for /parrot/object/marker"""
+        # Log first message received
+        if not self.marker_received:
+            self.get_logger().info('Marker data received from /parrot/object/marker!')
+            self.marker_received = True
+
+        # Extract position from marker
+        x = msg.pose.position.x
+        y = msg.pose.position.y
+        z = msg.pose.position.z
+
+        self.signals.marker_updated.emit(x, y, z)
+
+    def camera_callback(self, msg):
+        """Callback for /parrot/camera/image"""
+        # Log first message received
+        if not self.camera_received:
+            self.get_logger().info('Camera image received from /parrot/camera/image!')
+            self.camera_received = True
+
+        try:
+            # Convert ROS Image to OpenCV image
+            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+
+            # Resize for display (to fit in GUI)
+            height, width = cv_image.shape[:2]
+            max_width = 320
+            if width > max_width:
+                scale = max_width / width
+                new_width = max_width
+                new_height = int(height * scale)
+                cv_image = cv2.resize(cv_image, (new_width, new_height))
+
+            # Convert to QPixmap
+            height, width, channel = cv_image.shape
+            bytes_per_line = 3 * width
+            q_image = QImage(cv_image.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
+            pixmap = QPixmap.fromImage(q_image)
+
+            self.signals.camera_image_updated.emit(pixmap)
+
+        except Exception as e:
+            self.get_logger().error(f'Error converting camera image: {str(e)}')
 
     def publish_velocity(self, linear_x, linear_y, angular_z):
         """Publish velocity command"""
@@ -333,6 +412,8 @@ class CmdVelGUI(QMainWindow):
         self.signals.codes_bool_sent.connect(self.update_codes_bool_status)
         self.signals.husky_odom_updated.connect(self.update_husky_odom)
         self.signals.drone_odom_updated.connect(self.update_drone_odom)
+        self.signals.marker_updated.connect(self.update_marker)
+        self.signals.camera_image_updated.connect(self.update_camera_feed)
         
         # Initialize ROS2 in separate thread
         self.ros_thread = None
@@ -698,6 +779,42 @@ class CmdVelGUI(QMainWindow):
 
         right_column.addWidget(drone_group)
 
+        # ========== MARKER COORDINATES DISPLAY ==========
+        marker_group = QGroupBox("🎯 Object Marker Coordinates")
+        marker_layout = QGridLayout(marker_group)
+
+        marker_layout.addWidget(QLabel('X:'), 0, 0)
+        self.marker_x_label = QLabel('0.000 m')
+        self.marker_x_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.marker_x_label.setStyleSheet("QLabel { color: #D35400; background-color: #FEF5E7; padding: 5px; border-radius: 3px; }")
+        marker_layout.addWidget(self.marker_x_label, 0, 1)
+
+        marker_layout.addWidget(QLabel('Y:'), 1, 0)
+        self.marker_y_label = QLabel('0.000 m')
+        self.marker_y_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.marker_y_label.setStyleSheet("QLabel { color: #D35400; background-color: #FEF5E7; padding: 5px; border-radius: 3px; }")
+        marker_layout.addWidget(self.marker_y_label, 1, 1)
+
+        marker_layout.addWidget(QLabel('Z:'), 2, 0)
+        self.marker_z_label = QLabel('0.000 m')
+        self.marker_z_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.marker_z_label.setStyleSheet("QLabel { color: #D35400; background-color: #FEF5E7; padding: 5px; border-radius: 3px; }")
+        marker_layout.addWidget(self.marker_z_label, 2, 1)
+
+        right_column.addWidget(marker_group)
+
+        # ========== CAMERA FEED DISPLAY ==========
+        camera_group = QGroupBox("📷 Drone Camera Feed")
+        camera_layout = QVBoxLayout(camera_group)
+
+        self.camera_label = QLabel("No camera feed")
+        self.camera_label.setAlignment(Qt.AlignCenter)
+        self.camera_label.setMinimumSize(320, 240)
+        self.camera_label.setStyleSheet("QLabel { background-color: #1C2833; color: white; border-radius: 5px; }")
+        camera_layout.addWidget(self.camera_label)
+
+        right_column.addWidget(camera_group)
+
         # ========== DRONE ODOMETRY DISPLAY ==========
         drone_odom_group = QGroupBox("📍 Drone Odometry")
         drone_odom_layout = QGridLayout(drone_odom_group)
@@ -1006,6 +1123,16 @@ class CmdVelGUI(QMainWindow):
         self.drone_odom_y_label.setText(f'{y:.3f} m')
         self.drone_odom_z_label.setText(f'{z:.3f} m')
         self.drone_odom_yaw_label.setText(f'{yaw:.3f} rad')
+
+    def update_marker(self, x, y, z):
+        """Update marker coordinates display"""
+        self.marker_x_label.setText(f'{x:.3f} m')
+        self.marker_y_label.setText(f'{y:.3f} m')
+        self.marker_z_label.setText(f'{z:.3f} m')
+
+    def update_camera_feed(self, pixmap):
+        """Update camera feed display"""
+        self.camera_label.setPixmap(pixmap)
 
     def closeEvent(self, event):
         """Clean up when closing the application"""
