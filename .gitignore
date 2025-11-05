@@ -16,3 +16,8 @@ __pycache__/
 *.o
 *.so
 *.a
+
+Code/html/
+Code/latex/
+html/
+latex/
