@@ -20,7 +20,6 @@ from PyQt5.QtGui import QFont, QImage, QPixmap
 import threading
 import math
 import cv2
-import numpy as np
 
 class CmdVelSignals(QObject):
     """Signals for thread-safe GUI updates"""
@@ -214,7 +213,7 @@ class CmdVelNode(Node):
                 cv_image = cv2.resize(cv_image, (new_width, new_height))
 
             # Convert to QPixmap
-            height, width, channel = cv_image.shape
+            height, width, _ = cv_image.shape
             bytes_per_line = 3 * width
             q_image = QImage(cv_image.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
             pixmap = QPixmap.fromImage(q_image)
@@ -348,7 +347,7 @@ class CmdVelNode(Node):
         result_future = goal_handle.get_result_async()
         result_future.add_done_callback(self.nav_result_callback)
 
-    def nav_feedback_callback(self, feedback_msg):
+    def nav_feedback_callback(self, _feedback_msg):
         """Handle navigation feedback"""
         pass
 
@@ -458,7 +457,7 @@ class CmdVelGUI(QMainWindow):
         left_column = QVBoxLayout()
 
         # ========== HUSKY NAV2 GOAL SECTION ==========
-        nav_group = QGroupBox("🎯 Husky Nav2 Goal Control")
+        nav_group = QGroupBox("Husky Nav2 Goal Control")
         nav_layout = QVBoxLayout(nav_group)
 
         # Goal input fields
@@ -531,7 +530,7 @@ class CmdVelGUI(QMainWindow):
         left_column.addWidget(nav_group)
 
         # ========== KEYBOARD CONTROL SECTION ==========
-        keyboard_group = QGroupBox("⌨️ Manual Control (WASD or Click)")
+        keyboard_group = QGroupBox("Manual Control (WASD or Click)")
         keyboard_layout = QVBoxLayout(keyboard_group)
 
         # Arrow key buttons
@@ -648,7 +647,7 @@ class CmdVelGUI(QMainWindow):
         left_column.addWidget(keyboard_group)
 
         # ========== HUSKY ODOMETRY DISPLAY ==========
-        husky_odom_group = QGroupBox("📍 Husky Odometry")
+        husky_odom_group = QGroupBox("Husky Odometry")
         husky_odom_layout = QGridLayout(husky_odom_group)
 
         husky_odom_layout.addWidget(QLabel('X:'), 0, 0)
@@ -672,7 +671,7 @@ class CmdVelGUI(QMainWindow):
         left_column.addWidget(husky_odom_group)
 
         # ========== HUSKY EMERGENCY STOP ==========
-        husky_stop_btn = QPushButton("🛑 HUSKY EMERGENCY STOP")
+        husky_stop_btn = QPushButton("HUSKY EMERGENCY STOP")
         husky_stop_btn.setFont(QFont('Arial', 12, QFont.Bold))
         husky_stop_btn.setFixedHeight(60)
         husky_stop_btn.setStyleSheet("""
@@ -691,7 +690,7 @@ class CmdVelGUI(QMainWindow):
         right_column = QVBoxLayout()
 
         # ========== DRONE GOAL SECTION ==========
-        drone_group = QGroupBox("🚁 Drone 3D Goal Control (Parrot)")
+        drone_group = QGroupBox("Drone 3D Goal Control (Parrot)")
         drone_layout = QVBoxLayout(drone_group)
         
         # Drone goal input fields
@@ -780,31 +779,38 @@ class CmdVelGUI(QMainWindow):
         right_column.addWidget(drone_group)
 
         # ========== MARKER COORDINATES DISPLAY ==========
-        marker_group = QGroupBox("🎯 Object Marker Coordinates")
+        marker_group = QGroupBox("Object of Interest Coordinates")
         marker_layout = QGridLayout(marker_group)
 
-        marker_layout.addWidget(QLabel('X:'), 0, 0)
-        self.marker_x_label = QLabel('0.000 m')
+        # Status label spanning both columns
+        self.marker_status_label = QLabel('OOI not yet located')
+        self.marker_status_label.setFont(QFont('Arial', 10, QFont.Bold))
+        self.marker_status_label.setStyleSheet("QLabel { color: #E74C3C; background-color: #FADBD8; padding: 8px; border-radius: 3px; }")
+        self.marker_status_label.setAlignment(Qt.AlignCenter)
+        marker_layout.addWidget(self.marker_status_label, 0, 0, 1, 2)
+
+        marker_layout.addWidget(QLabel('X:'), 1, 0)
+        self.marker_x_label = QLabel('--- m')
         self.marker_x_label.setFont(QFont('Arial', 10, QFont.Bold))
-        self.marker_x_label.setStyleSheet("QLabel { color: #D35400; background-color: #FEF5E7; padding: 5px; border-radius: 3px; }")
-        marker_layout.addWidget(self.marker_x_label, 0, 1)
+        self.marker_x_label.setStyleSheet("QLabel { color: #7F8C8D; background-color: #F8F9F9; padding: 5px; border-radius: 3px; }")
+        marker_layout.addWidget(self.marker_x_label, 1, 1)
 
-        marker_layout.addWidget(QLabel('Y:'), 1, 0)
-        self.marker_y_label = QLabel('0.000 m')
+        marker_layout.addWidget(QLabel('Y:'), 2, 0)
+        self.marker_y_label = QLabel('--- m')
         self.marker_y_label.setFont(QFont('Arial', 10, QFont.Bold))
-        self.marker_y_label.setStyleSheet("QLabel { color: #D35400; background-color: #FEF5E7; padding: 5px; border-radius: 3px; }")
-        marker_layout.addWidget(self.marker_y_label, 1, 1)
+        self.marker_y_label.setStyleSheet("QLabel { color: #7F8C8D; background-color: #F8F9F9; padding: 5px; border-radius: 3px; }")
+        marker_layout.addWidget(self.marker_y_label, 2, 1)
 
-        marker_layout.addWidget(QLabel('Z:'), 2, 0)
-        self.marker_z_label = QLabel('0.000 m')
+        marker_layout.addWidget(QLabel('Z:'), 3, 0)
+        self.marker_z_label = QLabel('--- m')
         self.marker_z_label.setFont(QFont('Arial', 10, QFont.Bold))
-        self.marker_z_label.setStyleSheet("QLabel { color: #D35400; background-color: #FEF5E7; padding: 5px; border-radius: 3px; }")
-        marker_layout.addWidget(self.marker_z_label, 2, 1)
+        self.marker_z_label.setStyleSheet("QLabel { color: #7F8C8D; background-color: #F8F9F9; padding: 5px; border-radius: 3px; }")
+        marker_layout.addWidget(self.marker_z_label, 3, 1)
 
         right_column.addWidget(marker_group)
 
         # ========== CAMERA FEED DISPLAY ==========
-        camera_group = QGroupBox("📷 Drone Camera Feed")
+        camera_group = QGroupBox("Drone Camera Feed")
         camera_layout = QVBoxLayout(camera_group)
 
         self.camera_label = QLabel("No camera feed")
@@ -816,7 +822,7 @@ class CmdVelGUI(QMainWindow):
         right_column.addWidget(camera_group)
 
         # ========== DRONE ODOMETRY DISPLAY ==========
-        drone_odom_group = QGroupBox("📍 Drone Odometry")
+        drone_odom_group = QGroupBox("Drone Odometry")
         drone_odom_layout = QGridLayout(drone_odom_group)
 
         drone_odom_layout.addWidget(QLabel('X:'), 0, 0)
@@ -846,7 +852,7 @@ class CmdVelGUI(QMainWindow):
         right_column.addWidget(drone_odom_group)
 
         # ========== DRONE EMERGENCY STOP ==========
-        drone_stop_btn = QPushButton("🛑 DRONE EMERGENCY STOP")
+        drone_stop_btn = QPushButton("DRONE EMERGENCY STOP")
         drone_stop_btn.setFont(QFont('Arial', 12, QFont.Bold))
         drone_stop_btn.setFixedHeight(60)
         drone_stop_btn.setStyleSheet("""
@@ -1111,7 +1117,7 @@ class CmdVelGUI(QMainWindow):
         elif event.key() == Qt.Key_D:
             self.set_key_state('right', False)
 
-    def update_husky_odom(self, x, y, z, yaw):
+    def update_husky_odom(self, x, y, _z, yaw):
         """Update Husky odometry display (copied from husky_gui)"""
         self.husky_odom_x_label.setText(f'{x:.3f} m')
         self.husky_odom_y_label.setText(f'{y:.3f} m')
@@ -1126,9 +1132,19 @@ class CmdVelGUI(QMainWindow):
 
     def update_marker(self, x, y, z):
         """Update marker coordinates display"""
+        # Update status to show OOI has been located
+        self.marker_status_label.setText('OOI Located')
+        self.marker_status_label.setStyleSheet("QLabel { color: #27AE60; background-color: #D5F4E6; padding: 8px; border-radius: 3px; }")
+
+        # Update coordinates with active styling
         self.marker_x_label.setText(f'{x:.3f} m')
+        self.marker_x_label.setStyleSheet("QLabel { color: #D35400; background-color: #FEF5E7; padding: 5px; border-radius: 3px; }")
+
         self.marker_y_label.setText(f'{y:.3f} m')
+        self.marker_y_label.setStyleSheet("QLabel { color: #D35400; background-color: #FEF5E7; padding: 5px; border-radius: 3px; }")
+
         self.marker_z_label.setText(f'{z:.3f} m')
+        self.marker_z_label.setStyleSheet("QLabel { color: #D35400; background-color: #FEF5E7; padding: 5px; border-radius: 3px; }")
 
     def update_camera_feed(self, pixmap):
         """Update camera feed display"""
