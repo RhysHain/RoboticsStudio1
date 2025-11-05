@@ -9,6 +9,7 @@ def generate_launch_description():
     ld = LaunchDescription()
 
     config_path = PathJoinSubstitution([FindPackageShare('41068_ignition_bringup'), 'config'])
+    map_yaml_file = PathJoinSubstitution([FindPackageShare('41068_ignition_bringup'), 'maps', 'generated_world.yaml'])
 
     # Additional command line arguments
     use_sim_time = LaunchConfiguration('use_sim_time')
@@ -18,27 +19,17 @@ def generate_launch_description():
         description='Flag to enable use_sim_time'
     )
 
-    # Start Simultaneous Localisation and Mapping (SLaM)
-    slam = IncludeLaunchDescription(
-        PathJoinSubstitution([FindPackageShare('slam_toolbox'),
-                             'launch', 'online_async_launch.py']),
+    # Start Nav2 with localization (AMCL + map_server) and navigation
+    nav2_bringup = IncludeLaunchDescription(
+        PathJoinSubstitution([FindPackageShare('nav2_bringup'), 'launch', 'bringup_launch.py']),
         launch_arguments={
             'use_sim_time': use_sim_time,
-            'slam_params_file': PathJoinSubstitution([config_path, 'slam_params.yaml'])
-        }.items()
-    )
-
-    # Start Navigation Stack
-    navigation = IncludeLaunchDescription(
-        PathJoinSubstitution([FindPackageShare('nav2_bringup'), 'launch', 'navigation_launch.py']),
-        launch_arguments={
-            'use_sim_time': use_sim_time,
+            'map': map_yaml_file,
             'params_file': PathJoinSubstitution([config_path, 'nav2_params.yaml'])
         }.items()
     )
 
     ld.add_action(use_sim_time_launch_arg)
-    ld.add_action(slam)
-    ld.add_action(navigation)
+    ld.add_action(nav2_bringup)
 
     return ld

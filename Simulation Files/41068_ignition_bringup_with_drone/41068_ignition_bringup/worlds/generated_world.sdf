@@ -6,7 +6,7 @@
     <plugin name='ignition::gazebo::systems::UserCommands' filename='ignition-gazebo-user-commands-system' />
     <plugin name='ignition::gazebo::systems::SceneBroadcaster' filename='ignition-gazebo-scene-broadcaster-system' />
     <plugin name='ignition::gazebo::systems::Contact' filename='ignition-gazebo-contact-system' />
-    <!--plugin name='ignition::gazebo::systems::Sensors' filename='libignition-gazebo-sensors-system.so' /-->
+    <plugin name='ignition::gazebo::systems::Sensors' filename='libignition-gazebo-sensors-system.so' />
 
     <!-- Lighting -->
     <light name="sun" type="directional">
