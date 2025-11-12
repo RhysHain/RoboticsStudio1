@@ -74,7 +74,7 @@ def main():
     # ---------------------------
     sdf_header = """<?xml version="1.0"?>
 <sdf version='1.8'>
-  <world name="new_world">
+  <world name="generated_world">
     <!-- Basic world setup  -->
     <plugin name='ignition::gazebo::systems::Physics' filename='ignition-gazebo-physics-system' />
     <plugin name='ignition::gazebo::systems::UserCommands' filename='ignition-gazebo-user-commands-system' />
